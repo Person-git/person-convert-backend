@@ -54,6 +54,29 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/debug/mutool")
+def debug_mutool():
+    """暫時性除錯端點:檢查 mutool 是否存在、PATH 設定、能否實際執行。確認問題後可以移除。"""
+    result = {"PATH": os.environ.get("PATH", "(未設定)")}
+    try:
+        which = subprocess.run(["which", "mutool"], capture_output=True, text=True, timeout=10)
+        result["which_mutool_stdout"] = which.stdout.strip()
+        result["which_mutool_stderr"] = which.stderr.strip()
+        result["which_returncode"] = which.returncode
+    except Exception as e:
+        result["which_error"] = str(e)
+    try:
+        ver = subprocess.run(["mutool", "-v"], capture_output=True, text=True, timeout=10)
+        result["mutool_stdout"] = ver.stdout.strip()
+        result["mutool_stderr"] = ver.stderr.strip()
+        result["mutool_returncode"] = ver.returncode
+    except FileNotFoundError as e:
+        result["mutool_exec_error"] = f"FileNotFoundError: {e}"
+    except Exception as e:
+        result["mutool_exec_error"] = f"{type(e).__name__}: {e}"
+    return result
+
+
 @app.post("/convert/pdf-to-docx")
 async def pdf_to_docx(file: UploadFile = File(...)):
     """PDF 轉 Word,使用 pdf2docx 套件還原版面與表格。"""
