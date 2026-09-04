@@ -111,6 +111,22 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
     """
     _check_pdf(file)
 
+    def run_mutool_draw(src: str, out_path: str, page_num: int):
+        """執行 mutool draw 並確實驗證結果,錯誤訊息附上 mutool 實際的 stdout/stderr,不要用猜的。"""
+        try:
+            result = subprocess.run(
+                ["mutool", "draw", "-o", out_path, "-F", "svg", src, str(page_num)],
+                capture_output=True, timeout=60, text=True,
+            )
+        except FileNotFoundError:
+            raise HTTPException(500, "系統缺少 mutool,請確認 Dockerfile 有安裝 mupdf-tools")
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
+            raise HTTPException(500, f"mutool 轉換失敗(結束碼 {result.returncode}): {detail}")
+        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
+            raise HTTPException(500, f"mutool 執行成功但沒有產生檔案,原始輸出: {detail}")
+
     with tempfile.TemporaryDirectory() as tmp:
         src_path = _save_upload(file, tmp)
 
@@ -127,36 +143,25 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
             if p < 1 or p > total_pages:
                 raise HTTPException(400, f"頁碼 {p} 超出範圍(共 {total_pages} 頁)")
 
-        try:
-            if page:
-                out_path = os.path.join(tmp, "output.svg")
-                subprocess.run(
-                    ["mutool", "draw", "-o", out_path, "-F", "svg", src_path, str(page)],
-                    check=True, capture_output=True, timeout=60,
-                )
-                final_path = f"/tmp/{uuid.uuid4().hex}.svg"
-                shutil.copy(out_path, final_path)
-                return FileResponse(final_path, media_type="image/svg+xml", filename="converted.svg")
-            else:
-                zip_buf = io.BytesIO()
-                with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                    for p in target_pages:
-                        out_path = os.path.join(tmp, f"page-{p:03d}.svg")
-                        subprocess.run(
-                            ["mutool", "draw", "-o", out_path, "-F", "svg", src_path, str(p)],
-                            check=True, capture_output=True, timeout=60,
-                        )
-                        zf.write(out_path, arcname=f"page-{p:03d}.svg")
-                zip_buf.seek(0)
-                return StreamingResponse(
-                    zip_buf,
-                    media_type="application/zip",
-                    headers={"Content-Disposition": "attachment; filename=pages-svg.zip"},
-                )
-        except subprocess.CalledProcessError as e:
-            raise HTTPException(500, f"轉換失敗: {e.stderr.decode(errors='ignore')}")
-        except FileNotFoundError:
-            raise HTTPException(500, "系統缺少 mutool,請確認 Dockerfile 有安裝 mupdf-tools")
+        if page:
+            out_path = os.path.join(tmp, "output.svg")
+            run_mutool_draw(src_path, out_path, page)
+            final_path = f"/tmp/{uuid.uuid4().hex}.svg"
+            shutil.copy(out_path, final_path)
+            return FileResponse(final_path, media_type="image/svg+xml", filename="converted.svg")
+        else:
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for p in target_pages:
+                    out_path = os.path.join(tmp, f"page-{p:03d}.svg")
+                    run_mutool_draw(src_path, out_path, p)
+                    zf.write(out_path, arcname=f"page-{p:03d}.svg")
+            zip_buf.seek(0)
+            return StreamingResponse(
+                zip_buf,
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=pages-svg.zip"},
+            )
 
 
 @app.post("/convert/pdf-to-xlsx")
