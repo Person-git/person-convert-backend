@@ -8,6 +8,7 @@
 之後要加新功能,依樣式加一個 /convert/xxx 端點即可。
 """
 
+import glob
 import io
 import os
 import shutil
@@ -112,10 +113,14 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
     _check_pdf(file)
 
     def run_mutool_draw(src: str, out_path: str, page_num: int):
-        """執行 mutool draw 並確實驗證結果,錯誤訊息附上 mutool 實際的 stdout/stderr,不要用猜的。"""
+        """
+        執行 mutool draw。用 %d 頁碼樣板讓 mutool 自己決定檔名(它似乎不接受單頁時的固定檔名,
+        會靜默不寫檔),執行完再去資料夾找實際產生的檔案,搬到我們要的 out_path。
+        """
+        template = os.path.join(tmp, f"__mutool_{uuid.uuid4().hex}-%d.svg")
         try:
             result = subprocess.run(
-                ["mutool", "draw", "-o", out_path, "-F", "svg", src, str(page_num)],
+                ["mutool", "draw", "-o", template, "-F", "svg", src, str(page_num)],
                 capture_output=True, timeout=60, text=True,
             )
         except FileNotFoundError:
@@ -123,9 +128,11 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
         if result.returncode != 0:
             detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
             raise HTTPException(500, f"mutool 轉換失敗(結束碼 {result.returncode}): {detail}")
-        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+        matches = glob.glob(template.replace("%d", "*"))
+        if not matches:
             detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
-            raise HTTPException(500, f"mutool 執行成功但沒有產生檔案,原始輸出: {detail}")
+            raise HTTPException(500, f"mutool 執行成功但找不到輸出檔案,原始訊息: {detail}")
+        shutil.move(matches[0], out_path)
 
     with tempfile.TemporaryDirectory() as tmp:
         src_path = _save_upload(file, tmp)
