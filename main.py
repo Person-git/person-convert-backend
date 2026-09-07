@@ -4,6 +4,7 @@
   - PDF -> Word (.docx)          使用 pdf2docx 還原版面
   - PDF -> Excel (.xlsx)         使用 pdfplumber 擷取表格,效果依原始 PDF 表格結構而定
   - PDF -> SVG (向量圖,可全部頁或單頁)  使用系統的 mutool(見 Dockerfile 安裝 mupdf-tools)
+  - PDF 壓縮                     使用 Ghostscript 重新最佳化圖片與字型(見 Dockerfile 安裝 ghostscript)
 
 之後要加新功能,依樣式加一個 /convert/xxx 端點即可。
 """
@@ -17,7 +18,7 @@ import tempfile
 import uuid
 import zipfile
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -30,6 +31,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Original-Size", "X-Compressed-Size"],
 )
 
 MAX_FILE_SIZE_MB = 25
@@ -48,6 +50,15 @@ def _save_upload(file: UploadFile, dest_dir: str) -> str:
             raise HTTPException(413, f"檔案超過 {MAX_FILE_SIZE_MB}MB 限制")
         f.write(content)
     return path
+
+
+def _cleanup_file(path: str):
+    """背景任務:回應傳送給使用者之後執行,刪除暫存輸出檔,不讓它留在伺服器磁碟上。"""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
 
 
 @app.get("/health")
@@ -79,7 +90,7 @@ def debug_mutool():
 
 
 @app.post("/convert/pdf-to-docx")
-async def pdf_to_docx(file: UploadFile = File(...)):
+async def pdf_to_docx(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """PDF 轉 Word,使用 pdf2docx 套件還原版面與表格。"""
     _check_pdf(file)
     from pdf2docx import Converter  # 延遲載入,避免冷啟動變慢
@@ -96,15 +107,17 @@ async def pdf_to_docx(file: UploadFile = File(...)):
 
         final_path = f"/tmp/{uuid.uuid4().hex}.docx"
         shutil.copy(out_path, final_path)
+        background_tasks.add_task(_cleanup_file, final_path)
         return FileResponse(
             final_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             filename="converted.docx",
+            background=background_tasks,
         )
 
 
 @app.post("/convert/pdf-to-svg")
-async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
+async def pdf_to_svg(background_tasks: BackgroundTasks, file: UploadFile = File(...), page: int | None = None):
     """
     PDF 轉 SVG 向量圖,呼叫系統的 mutool。
     - 有帶 page 參數(1-based):只轉那一頁,回傳單一 .svg 檔
@@ -155,7 +168,11 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
             run_mutool_draw(src_path, out_path, page)
             final_path = f"/tmp/{uuid.uuid4().hex}.svg"
             shutil.copy(out_path, final_path)
-            return FileResponse(final_path, media_type="image/svg+xml", filename="converted.svg")
+            background_tasks.add_task(_cleanup_file, final_path)
+            return FileResponse(
+                final_path, media_type="image/svg+xml", filename="converted.svg",
+                background=background_tasks,
+            )
         else:
             zip_buf = io.BytesIO()
             with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -172,7 +189,7 @@ async def pdf_to_svg(file: UploadFile = File(...), page: int | None = None):
 
 
 @app.post("/convert/pdf-to-xlsx")
-async def pdf_to_xlsx(file: UploadFile = File(...)):
+async def pdf_to_xlsx(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """
     PDF 轉 Excel,使用 pdfplumber 擷取每頁的表格,每個表格各自寫成一個工作表。
     效果依原始 PDF 的表格線條/排版而定 —— 掃描圖檔或無明確表格線的 PDF 抓不到表格。
@@ -208,8 +225,59 @@ async def pdf_to_xlsx(file: UploadFile = File(...)):
 
         out_path = f"/tmp/{uuid.uuid4().hex}.xlsx"
         wb.save(out_path)
+        background_tasks.add_task(_cleanup_file, out_path)
         return FileResponse(
             out_path,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             filename="converted.xlsx",
+            background=background_tasks,
+        )
+
+
+@app.post("/convert/pdf-compress")
+async def pdf_compress(background_tasks: BackgroundTasks, file: UploadFile = File(...), level: str = "ebook"):
+    """
+    PDF 壓縮,使用 Ghostscript 重新最佳化內嵌圖片與字型,保留文字可搜尋/向量內容
+    (跟「轉圖片再組回PDF」的土法煉鋼不同,不會犧牲文字清晰度)。
+    level: screen(高壓縮/低畫質,約72dpi) · ebook(平衡,約150dpi,預設) · printer(高畫質,約300dpi)
+    """
+    _check_pdf(file)
+    if level not in ("screen", "ebook", "printer"):
+        raise HTTPException(400, "level 必須是 screen / ebook / printer 其中之一")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src_path = _save_upload(file, tmp)
+        out_path = os.path.join(tmp, "compressed.pdf")
+        try:
+            result = subprocess.run(
+                [
+                    "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
+                    f"-dPDFSETTINGS=/{level}", "-dNOPAUSE", "-dQUIET", "-dBATCH",
+                    f"-sOutputFile={out_path}", src_path,
+                ],
+                capture_output=True, timeout=120, text=True,
+            )
+        except FileNotFoundError:
+            raise HTTPException(500, "系統缺少 Ghostscript(gs),請確認 Dockerfile 有安裝 ghostscript")
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
+            raise HTTPException(500, f"壓縮失敗(結束碼 {result.returncode}): {detail}")
+        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+            raise HTTPException(500, "Ghostscript 執行成功但沒有產生檔案")
+
+        original_size = os.path.getsize(src_path)
+        compressed_size = os.path.getsize(out_path)
+
+        final_path = f"/tmp/{uuid.uuid4().hex}.pdf"
+        shutil.copy(out_path, final_path)
+        background_tasks.add_task(_cleanup_file, final_path)
+        return FileResponse(
+            final_path,
+            media_type="application/pdf",
+            filename="compressed.pdf",
+            background=background_tasks,
+            headers={
+                "X-Original-Size": str(original_size),
+                "X-Compressed-Size": str(compressed_size),
+            },
         )

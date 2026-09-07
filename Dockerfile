@@ -1,8 +1,10 @@
 FROM python:3.11-slim
 
 # mupdf-tools 提供 mutool,用於 PDF -> SVG
+# ghostscript 提供 gs,用於 PDF 壓縮
 RUN apt-get update && apt-get install -y --no-install-recommends \
     mupdf-tools \
+    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
