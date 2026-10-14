@@ -80,6 +80,19 @@
   #unlock-section{--accent:#8057b1;--accent-bg:#f5f0fb;}
   #btn-unlock-cancel{background:#fff;color:#68717e;border-color:#d5dae2;}
   @media(max-width:600px){header{padding:24px 20px;border-radius:16px;}.hero-subtitle{font-size:14px;}}
+
+  .it-settings{background:#eef3f8;border-color:#cbd7e5;box-shadow:none;padding:0;}
+  .it-settings summary{position:relative;cursor:pointer;padding:22px 56px 22px 26px;list-style:none;border-radius:16px;}
+  .it-settings summary::-webkit-details-marker{display:none;}
+  .it-settings summary:focus-visible{outline:3px solid #a8c2e5;outline-offset:3px;}
+  .it-title{display:block;font-size:16px;font-weight:600;color:#405b7b;}
+  .it-hint{display:block;font-size:12px;color:#687b91;margin-top:4px;}
+  .it-toggle{position:absolute;right:26px;top:26px;color:#405b7b;font-size:20px;line-height:1;}
+  .it-toggle::before{content:'＋';}
+  .it-settings[open] .it-toggle::before{content:'−';}
+  .it-content{padding:0 26px 24px;border-top:1px solid #d6e0eb;}
+  .it-content .desc{margin:18px 0 0;}
+  @media(max-width:600px){.it-settings summary{padding:20px 44px 20px 18px;}.it-toggle{right:18px;}.it-content{padding:0 18px 20px;}}
 </style>
 </head>
 <body>
@@ -90,7 +103,7 @@
   <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
   <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,文字轉檔與無損壓縮也可本機處理，進階模式可選後端。</p>
   <nav class="tool-nav" aria-label="常用工具">
-    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
+    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">進階設定</a>
   </nav>
 </header>
 
@@ -552,24 +565,25 @@
     <div class="status" id="status-upscale"></div>
   </section>
 
-  <!-- 後端API設定 -->
-  <section class="sheet" id="backend-settings">
-    <div class="sheet-head">
-      <div>
-        <div class="idx">BACKEND / API</div>
-        <h2>連接後端服務</h2>
-        <div class="desc">只有選擇「保留排版 Word」或「降低圖片解析度壓縮」時需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
+  <!-- IT 維護設定，預設收合 -->
+  <details class="sheet it-settings" id="backend-settings">
+    <summary>
+      <span class="it-title">進階設定／IT 管理</span>
+      <span class="it-hint">僅保留排版 Word 與進階壓縮使用，一般操作無需設定。</span>
+      <span class="it-toggle" aria-hidden="true"></span>
+    </summary>
+    <div class="it-content">
+      <p class="desc">已預設帶入後端網址；只有服務網址變動時才需修改。使用下方按鈕可確認後端連線狀態。</p>
+      <div class="row">
+        <div class="field" style="width:340px;">
+          <label for="api-base">後端 API 網址</label>
+          <input type="text" id="api-base" placeholder="https://your-app.onrender.com" style="width:100%;">
+        </div>
+        <button class="run" id="btn-test-api">測試連線</button>
       </div>
+      <div class="status" id="status-api" role="status" aria-live="polite"></div>
     </div>
-    <div class="row">
-      <div class="field" style="width:340px;">
-        <label>後端 API 網址</label>
-        <input type="text" id="api-base" placeholder="https://your-app.onrender.com" style="width:100%;">
-      </div>
-      <button class="run" id="btn-test-api">測試連線</button>
-    </div>
-    <div class="status" id="status-api"></div>
-  </section>
+  </details>
 
 </main>
 
