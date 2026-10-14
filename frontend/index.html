@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>博申轉檔平台</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1c3d5c">
+<meta name="theme-color" content="#f6f7f9">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -13,189 +13,50 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="ocr-word.js"></script>
 <style>
-  :root{
-    /* diazo print(重氮曬圖)配色:深墨線印在淺紙上,是藍圖的另一種傳統畫法 */
-    --blueprint: #e4ecf7;
-    --blueprint-deep: #ffffff;
-    --line: #1c3d5c;
-    --line-dim: rgba(28,61,92,0.16);
-    --ink-soft: rgba(28,61,92,0.62);
-    --paper: #1c3d5c;
-    --stamp: #c8442d;
-    --ok: #0e8f5d;
-    --mono: "Segoe UI", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
-    --sans: "Segoe UI", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
-  }
+  :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:var(--blueprint);
-    color:var(--line);
-    font-family:var(--sans);
-    min-height:100vh;
-    padding:32px 20px 80px;
-  }
-  header{
-    max-width:960px;
-    margin:0 auto 40px;
-    position:relative;
-  }
-  .eyebrow{
-    font-family:var(--mono);
-    font-size:12px;
-    letter-spacing:0.15em;
-    text-transform:uppercase;
-    color:var(--stamp);
-    display:flex;
-    align-items:center;
-    gap:8px;
-  }
-  .eyebrow::before{content:"";width:8px;height:8px;background:var(--stamp);display:inline-block;transform:rotate(45deg);}
-  h1{
-    font-size:clamp(26px, 4vw, 40px);
-    font-weight:700;
-    margin:8px 0 4px;
-    letter-spacing:-0.01em;
-  }
-  header p{
-    font-family:var(--mono);
-    font-size:14px;
-    color:var(--ink-soft);
-    max-width:560px;
-    line-height:1.6;
-  }
-  .corner{
-    position:absolute; width:18px; height:18px;
-    border:1.5px solid var(--line-dim);
-  }
-  .tl{top:-14px;left:-14px;border-right:none;border-bottom:none;}
-  .tr{top:-14px;right:-14px;border-left:none;border-bottom:none;}
-
-  main{max-width:960px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:28px;}
-  #thumbs-pm{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));gap:16px 10px;padding:10px 0;}
-  #thumbs-pm > div{min-width:0;}
-  #thumbs-pm canvas{display:block;max-width:100%;height:auto;margin:0 auto;}
-
-  .sheet{
-    position:relative;
-    background:var(--blueprint-deep);
-    border:1px solid var(--line-dim);
-    border-radius:2px;
-    padding:28px;
-    box-shadow:0 1px 3px rgba(28,61,92,0.08), 0 8px 24px rgba(28,61,92,0.05);
-  }
-  .sheet::before, .sheet::after{
-    content:"";
-    position:absolute;
-    width:14px;height:14px;
-    border:1.5px solid var(--stamp);
-    opacity:0.8;
-  }
-  .sheet::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
-  .sheet::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
-
-  .sheet-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    margin-bottom:18px;
-    border-bottom:1px dashed var(--line-dim);
-    padding-bottom:14px;
-  }
-  .sheet-head .idx{font-family:var(--mono);font-size:12px;color:var(--stamp);}
-  .sheet-head h2{font-size:20px;margin:2px 0 0;font-weight:700;}
-  .sheet-head .desc{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:4px;}
-
-  .dropzone{
-    border:1.5px dashed var(--line-dim);
-    border-radius:4px;
-    padding:24px;
-    text-align:center;
-    cursor:pointer;
-    transition:border-color .15s, background .15s;
-    font-family:var(--mono);
-    font-size:13px;
-  }
-  .dropzone:hover, .dropzone.drag{
-    border-color:var(--stamp);
-    background:rgba(200,68,45,0.05);
-  }
+  body{margin:0;background:var(--blueprint);color:var(--line);font-family:var(--sans);min-height:100vh;padding:48px 24px 64px;line-height:1.6;}
+  header,main,footer{max-width:1000px;margin-left:auto;margin-right:auto;}
+  header{margin-bottom:28px;}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--ink-soft);text-transform:uppercase;}
+  h1{font-size:clamp(26px,4vw,36px);font-weight:650;margin:8px 0;letter-spacing:-.035em;}
+  header p{font-size:14px;color:var(--ink-soft);max-width:760px;margin:0;}
+  .corner{display:none;}
+  .tool-nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px;}
+  .tool-nav a{color:var(--line);background:#fff;border:1px solid var(--line-dim);border-radius:999px;padding:6px 14px;font-size:13px;text-decoration:none;transition:background .15s;}
+  .tool-nav a:hover{background:#edf1f6;}
+  main{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;}
+  .sheet{position:relative;background:#fff;border:1px solid var(--line-dim);border-radius:16px;padding:28px;box-shadow:0 2px 8px rgba(20,30,50,.025);scroll-margin-top:24px;min-width:0;}
+  .sheet-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;}
+  .sheet-head .idx{font-size:11px;font-weight:600;color:var(--ink-soft);letter-spacing:.05em;}
+  .sheet-head h2{font-size:21px;margin:4px 0;font-weight:650;letter-spacing:-.02em;}
+  .desc,.sheet-head .desc{font-size:13px;color:var(--ink-soft);line-height:1.7;}
+  .dropzone{border:1px dashed #cdd3dc;border-radius:12px;padding:28px 18px;text-align:center;cursor:pointer;background:#fafbfc;transition:border-color .15s,background .15s;font-size:14px;color:var(--ink-soft);}
+  .dropzone:hover,.dropzone.drag{border-color:var(--stamp);background:#f0f4f9;color:var(--stamp);}
   .dropzone input{display:none;}
-
-  .filelist{
-    margin-top:14px;
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-  }
-  .fileitem{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    font-family:var(--mono);
-    font-size:12px;
-    background:rgba(28,61,92,0.035);
-    border:1px solid var(--line-dim);
-    padding:8px 12px;
-    border-radius:2px;
-  }
-  .fileitem button{
-    background:none;border:none;color:var(--stamp);cursor:pointer;font-family:var(--mono);font-size:12px;
-  }
-
-  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px;}
-  .field{
-    display:flex;flex-direction:column;gap:4px;max-width:100%;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink-soft);
-  }
-  .field input[type=number], .field input[type=text]{
-    background:var(--blueprint);
-    border:1px solid var(--line-dim);
-    color:var(--paper);
-    padding:6px 8px;
-    font-family:var(--mono);
-    width:90px;
-    border-radius:2px;
-  }
-
-  button.run{
-    background:var(--stamp);
-    color:var(--blueprint-deep);
-    border:none;
-    font-family:var(--mono);
-    font-weight:500;
-    font-size:13px;
-    letter-spacing:0.03em;
-    padding:10px 20px;
-    border-radius:2px;
-    cursor:pointer;
-    text-transform:uppercase;
-    transition:filter .15s, transform .1s;
-  }
-  button.run:hover{filter:brightness(1.1);}
+  .filelist{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+  .fileitem{display:flex;gap:12px;align-items:center;justify-content:space-between;font-size:13px;background:#f6f7f9;border:1px solid var(--line-dim);padding:10px 14px;border-radius:9px;overflow-wrap:anywhere;}
+  .fileitem button{background:none;border:none;color:#a33e3e;cursor:pointer;font-family:inherit;font-size:12px;flex-shrink:0;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:18px;}
+  .field{display:flex;flex-direction:column;gap:6px;max-width:100%;min-width:0;font-size:12px;color:var(--ink-soft);}
+  .field input[type=number],.field input[type=text],.field input[type=password],.field select{background:#fff;border:1px solid #d5dae2;color:var(--paper);padding:9px 11px;font-family:inherit;font-size:13px;width:90px;border-radius:8px;min-height:40px;max-width:100%;}
+  input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,.dropzone:focus-within{outline:3px solid #a8c2e5;outline-offset:3px;}
+  button.run{background:var(--stamp);color:#fff;border:1px solid transparent;font-family:inherit;font-weight:600;font-size:13px;letter-spacing:0;padding:10px 18px;border-radius:9px;cursor:pointer;min-height:40px;text-transform:none;transition:background .15s,transform .1s;}
+  button.run:hover{background:#243d60;}
   button.run:active{transform:translateY(1px);}
-  button.run:disabled{opacity:0.4;cursor:not-allowed;}
-
-  .status{
-    font-family:var(--mono);
-    font-size:12px;
-    margin-top:12px;
-    color:var(--ok);
-    min-height:16px;
-  }
-  .status.err{color:var(--stamp);}
-  .conversion-progress{display:block;width:100%;height:12px;margin-top:12px;accent-color:var(--stamp);}
+  button.run:disabled{background:#e9edf2;color:#8b95a2;cursor:not-allowed;}
+  #btn-ocr-cancel,#btn-pm-preview{background:#fff;color:var(--stamp);border-color:#d5dae2;}
+  #btn-ocr-cancel:disabled,#btn-pm-preview:disabled{color:#9aa3af;}
+  .status{font-size:13px;margin-top:12px;color:var(--ok);min-height:16px;overflow-wrap:anywhere;}
+  .status.err{color:#b33f3f;}
+  .conversion-progress{display:block;width:100%;height:10px;margin-top:14px;accent-color:var(--stamp);}
   .conversion-progress[hidden]{display:none;}
-
-  footer{
-    max-width:960px;margin:48px auto 0;
-    font-family:var(--mono);font-size:11px;color:var(--ink-soft);
-    border-top:1px dashed var(--line-dim);padding-top:16px;
-    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    *{transition:none !important;}
-  }
+  #thumbs-pm{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));gap:16px 10px;padding:16px 0;}
+  #thumbs-pm > div{min-width:0;background:#f8f9fb;border:1px solid var(--line-dim);border-radius:10px;padding:10px;}
+  #thumbs-pm canvas{display:block;max-width:100%;height:auto;margin:0 auto;}
+  footer{margin-top:32px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line-dim);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  @media(max-width:600px){body{padding:24px 14px 40px;}.sheet{padding:20px 16px;border-radius:12px;}.sheet-head h2{font-size:20px;}.dropzone{padding:24px 12px;}.tool-nav{gap:6px;}.tool-nav a{padding:5px 11px;}main{gap:16px;}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 </style>
 </head>
 <body>
@@ -204,7 +65,10 @@
   <div class="corner tl"></div><div class="corner tr"></div>
   <div class="eyebrow">Document Toolkit</div>
   <h1>博申轉檔平台</h1>
-  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,少數(10-13)需要後端運算。</p>
+  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,Word、Excel、向量圖與壓縮使用後端服務。</p>
+  <nav class="tool-nav" aria-label="常用工具">
+    <a href="#page-manager">頁面管理</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
+  </nav>
 </header>
 
 <main>
@@ -351,8 +215,8 @@
     <div class="status" id="status-merge"></div>
   </section>
 
-  <!-- PDF分割 -->
-  <section class="sheet">
+  <!-- PDF頁面管理 -->
+  <section class="sheet" id="page-manager">
     <div class="sheet-head">
       <div>
         <div class="idx">05 / PDF ÷ N</div>
@@ -393,7 +257,7 @@
         <input type="password" id="split-password" autocomplete="off" placeholder="不需要密碼可留空" style="width:100%;">
       </div>
       <button class="run" id="btn-pm-preview" disabled>重新預覽</button>
-      <button class="run" id="btn-split-image" disabled>擷取單頁（圖片 PDF）</button>
+      <button class="run" id="btn-split-image" disabled>擷取起始頁（圖片 PDF）</button>
     </div>
     <div class="desc" style="margin-top:10px;">受保護但可正常開啟的 PDF，可使用「起始頁」指定一頁另存為圖片 PDF。保留頁面外觀；文字不可選取，向量與互動欄位不保留。文件與密碼不上傳，原檔不會被修改。</div>
     <div class="status" id="status-split"></div>
@@ -500,7 +364,7 @@
   </section>
 
   <!-- PDF轉Word -->
-  <section class="sheet">
+  <section class="sheet" id="convert-word">
     <div class="sheet-head">
       <div>
         <div class="idx">10 / PDF → DOCX</div>
@@ -655,7 +519,7 @@
   </section>
 
   <!-- 後端API設定 -->
-  <section class="sheet" style="border-color:var(--stamp);">
+  <section class="sheet" id="backend-settings">
     <div class="sheet-head">
       <div>
         <div class="idx">BACKEND / API</div>
