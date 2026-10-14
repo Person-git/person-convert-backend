@@ -12,6 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="ocr-word.js"></script>
+<script src="local-convert.js"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -57,6 +58,16 @@
   footer{margin-top:32px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line-dim);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
   @media(max-width:600px){body{padding:24px 14px 40px;}.sheet{padding:20px 16px;border-radius:12px;}.sheet-head h2{font-size:20px;}.dropzone{padding:24px 12px;}.tool-nav{gap:6px;}.tool-nav a{padding:5px 11px;}main{gap:16px;}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+
+  .sheet{--accent:#3563aa;--accent-bg:#eef4fd;}
+  .sheet:nth-child(4n+2){--accent:#168073;--accent-bg:#edf8f5;}
+  .sheet:nth-child(4n+3){--accent:#8057b1;--accent-bg:#f5f0fb;}
+  .sheet:nth-child(4n){--accent:#a96721;--accent-bg:#fff6e9;}
+  .sheet-head h2{color:var(--accent);}
+  .sheet-head .idx{display:inline-block;color:var(--accent);background:var(--accent-bg);border-radius:6px;padding:3px 8px;}
+  .sheet-head{border-left:3px solid var(--accent);padding-left:14px;}
+  #page-manager{--accent:#3563aa;--accent-bg:#eef4fd;}
+  #ocr-word-section{--accent:#168073;--accent-bg:#edf8f5;}
 </style>
 </head>
 <body>
@@ -65,7 +76,7 @@
   <div class="corner tl"></div><div class="corner tr"></div>
   <div class="eyebrow">Document Toolkit</div>
   <h1>博申轉檔平台</h1>
-  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,Word、Excel、向量圖與壓縮使用後端服務。</p>
+  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,排版 Word 轉換與壓縮使用後端服務。</p>
   <nav class="tool-nav" aria-label="常用工具">
     <a href="#page-manager">頁面管理</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
   </nav>
@@ -410,7 +421,7 @@
       <div>
         <div class="idx">11 / PDF → XLSX</div>
         <h2>PDF 轉 Excel</h2>
-        <div class="desc">擷取 PDF 中有文字與明確表格線的表格,每個表格各自輸出成一個工作表；掃描圖片或文字已轉成輪廓的 PDF 需先 OCR，此功能不含 OCR · 檔案會上傳至後端伺服器處理,處理完成後原始檔案立即刪除</div>
+        <div class="desc">在瀏覽器依文字位置整理列與欄，每頁一個工作表，文件不上傳。複雜表格、合併儲存格與多欄排版需校對；掃描圖片或輪廓文字不含 OCR。</div>
       </div>
     </div>
     <div class="dropzone" id="dz-xlsx">
@@ -430,7 +441,7 @@
       <div>
         <div class="idx">12 / PDF → SVG</div>
         <h2>PDF 轉向量圖</h2>
-        <div class="desc">輸出可無限縮放不失真的 SVG,留空頁碼=全部頁面打包成 ZIP · 檔案會上傳至後端伺服器處理,處理完成後原始檔案立即刪除</div>
+        <div class="desc">在瀏覽器輸出 SVG，文件不上傳；留空頁碼則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
       </div>
     </div>
     <div class="dropzone" id="dz-svg">
@@ -524,7 +535,7 @@
       <div>
         <div class="idx">BACKEND / API</div>
         <h2>連接後端服務</h2>
-        <div class="desc">上面 10-13(PDF轉Word / Excel / 向量圖 / 壓縮)需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
+        <div class="desc">只有 10 排版 Word 轉換與 13 壓縮需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
       </div>
     </div>
     <div class="row">
@@ -540,7 +551,7 @@
 </main>
 
 <footer>
-  <span>01-09、10B 免費 OCR、14 全在本機端處理，不上傳 · 10-13 需上傳至後端伺服器處理</span>
+  <span>頁面工具、免費 OCR、Excel、SVG 與圖片放大全在瀏覽器處理 · 排版 Word 與壓縮使用後端</span>
   <span>pdf-lib · pdf.js · JSZip</span>
 </footer>
 
@@ -1233,7 +1244,7 @@ setupDropzone('dz-xlsx', 'input-xlsx', files => {
   }
 });
 document.getElementById('btn-xlsx').onclick = async () => {
-  await runBackendConvert('btn-xlsx', 'status-xlsx', progress => callBackendConvert('/convert/pdf-to-xlsx', xlsxFile, 'converted.xlsx', '', progress));
+  await LocalConvert.run('xlsx',xlsxFile);
 };
 
 /* ---------- 11: PDF -> SVG ---------- */
@@ -1246,12 +1257,7 @@ setupDropzone('dz-svg', 'input-svg', files => {
   }
 });
 document.getElementById('btn-svg').onclick = async () => {
-  await runBackendConvert('btn-svg', 'status-svg', async progress => {
-    const pageVal = document.getElementById('svg-page').value.trim();
-    const query = pageVal ? `?page=${encodeURIComponent(pageVal)}` : '';
-    const defaultName = pageVal ? 'converted.svg' : 'pages-svg.zip';
-    return await callBackendConvert('/convert/pdf-to-svg', svgFile, defaultName, query, progress);
-  });
+  await LocalConvert.run('svg',svgFile,document.getElementById('svg-page').value.trim());
 };
 
 /* ---------- 12: PDF 壓縮 ---------- */

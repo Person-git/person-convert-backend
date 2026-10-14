@@ -1,0 +1,79 @@
+/* Local PDF exports. No document data is sent to a server. */
+(function(root){
+  'use strict';
+  function textRows(items){
+    const rows=[];
+    const sorted=items.filter(i=>i.str?.trim()).map(i=>({text:i.str,x:i.transform[4],y:i.transform[5],width:i.width,height:Math.abs(i.height)||10})).sort((a,b)=>b.y-a.y||a.x-b.x);
+    for(const item of sorted){
+      let row=rows.find(r=>Math.abs(r.y-item.y)<=Math.max(2,Math.min(r.height,item.height)*.3));
+      if(!row){row={y:item.y,height:item.height,items:[]};rows.push(row);}
+      row.items.push(item);
+    }
+    const merged=rows.map(row=>{
+      const cells=[];
+      for(const item of row.items.sort((a,b)=>a.x-b.x)){
+        const prev=cells.at(-1);
+        if(prev&&item.x-prev.end<=Math.max(4,item.height*.8)){prev.text+=' '+item.text;prev.end=Math.max(prev.end,item.x+item.width);}
+        else cells.push({x:item.x,end:item.x+item.width,text:item.text});
+      }
+      return cells;
+    });
+    const columns=[];
+    for(const cells of merged)for(const cell of cells){if(!columns.some(x=>Math.abs(x-cell.x)<8))columns.push(cell.x);}
+    columns.sort((a,b)=>a-b);
+    return merged.map(cells=>{const row=[];for(const c of cells){const index=columns.reduce((best,x,i)=>Math.abs(x-c.x)<Math.abs(columns[best]-c.x)?i:best,0);row[index]=row[index]?row[index]+' '+c.text:c.text;}return row;});
+  }
+  let sheetLoader;
+  function loadSheets(){
+    if(root.XLSX)return Promise.resolve(root.XLSX);
+    if(!sheetLoader)sheetLoader=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');script.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+      script.onload=()=>root.XLSX?resolve(root.XLSX):reject(new Error('Excel 套件載入失敗'));
+      script.onerror=()=>{sheetLoader=null;script.remove();reject(new Error('無法下載 Excel 套件，請確認網路後重試'));};document.head.appendChild(script);
+    });
+    return sheetLoader;
+  }
+  async function run(kind,file,pageValue=''){
+    const button=document.getElementById('btn-'+kind),status='status-'+kind;
+    if(!file||button.dataset.busy)return;
+    button.dataset.busy='1';button.disabled=true;
+    const progress=document.getElementById(status+'-local-progress')||Object.assign(document.createElement('progress'),{id:status+'-local-progress',className:'conversion-progress',max:100});
+    document.getElementById(status).before(progress);progress.hidden=false;progress.value=0;
+    let task;
+    try{
+      if(file.size>50*1024*1024)throw new Error('請使用小於 50 MB 的 PDF');
+      const chosen=pageValue?Number(pageValue):null;
+      if(pageValue&&(!Number.isInteger(chosen)||chosen<1))throw new Error('頁碼必須是大於 0 的整數');
+      setStatus(status,'讀取 PDF · 全程在瀏覽器處理');
+      const sheets=kind==='xlsx'?await loadSheets():null;
+      task=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),fontExtraProperties:kind==='svg',isOffscreenCanvasSupported:false});const pdf=await task.promise;
+      if(chosen>pdf.numPages)throw new Error(`頁碼超出範圍（共 ${pdf.numPages} 頁）`);
+      const numbers=chosen?[chosen]:Array.from({length:pdf.numPages},(_,i)=>i+1);
+      const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg;
+      for(let i=0;i<numbers.length;i++){
+        const page=await pdf.getPage(numbers[i]);
+        try{
+          if(sheets){
+            const content=await page.getTextContent();const rows=textRows(content.items);textCount+=rows.length;
+            sheets.utils.book_append_sheet(workbook,sheets.utils.aoa_to_sheet(rows),`Page ${numbers[i]}`);
+          }else{
+            const graphics=new pdfjsLib.SVGGraphics(page.commonObjs,page.objs,true);graphics.embedFonts=true;
+            const svg=await graphics.getSVG(await page.getOperatorList(),page.getViewport({scale:1}));
+            singleSvg=new XMLSerializer().serializeToString(svg);zip.file(`page-${String(numbers[i]).padStart(3,'0')}.svg`,singleSvg);
+          }
+        }finally{page.cleanup();}
+        progress.value=Math.round((i+1)/numbers.length*95);setStatus(status,`處理中 ${progress.value}% · ${i+1} / ${numbers.length} 頁`);
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      if(sheets){
+        if(!textCount)throw new Error('沒有可擷取的文字，掃描圖片與輪廓文字需先 OCR');
+        download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');
+      }else if(chosen)download(new Blob([singleSvg],{type:'image/svg+xml'}),`page-${chosen}.svg`);
+      else download(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'pages-svg.zip');
+      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
+    }catch(error){progress.hidden=true;setStatus(status,'錯誤: '+(error.name==='PasswordException'?'此 PDF 需要開啟密碼，請使用已解鎖的副本':error.message),true);}
+    finally{if(task)await task.destroy().catch(()=>{});delete button.dataset.busy;button.disabled=false;}
+  }
+  root.LocalConvert={run,textRows};
+  if(typeof module!=='undefined')module.exports={textRows};
+})(typeof window!=='undefined'?window:globalThis);

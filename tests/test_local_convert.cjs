@@ -1,0 +1,11 @@
+const assert=require('assert');
+const {textRows}=require('../frontend/local-convert.js');
+const item=(str,x,y,width=20)=>({str,transform:[1,0,0,10,x,y],width,height:10});
+const rows=textRows([item('200',120,80),item('Name',10,100),item('Value',120,100),item('First',10,80),item('Second',10,60)]);
+assert.deepEqual(rows[0],['Name','Value']);
+assert.deepEqual(rows[1],['First','200']);
+assert.deepEqual(rows[2],['Second']);
+assert.deepEqual(textRows([item('Hello',10,100,25),item('world',38,100,25)]),[['Hello world']]);
+assert.deepEqual(textRows([item(' ',10,100)]),[]);
+assert.deepEqual(textRows([item('=SUM(A1)',10,100)]),[['=SUM(A1)']]);
+console.log('Text row ordering, column alignment, missing cells and split-word merging passed');

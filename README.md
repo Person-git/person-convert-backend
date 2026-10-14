@@ -53,3 +53,9 @@ PDF 壓縮需要 `gs`（Ghostscript）；Dockerfile 已安裝。前端可用任�
 健康檢查會回傳 API 版本，頁面「測試連線」可確認目前连接的後端版本。
 
 機密測試文件與轉換結果只在本機 `tmp/`，不納入 Git，不上傳到第三方服務。
+
+## 瀏覽器 Excel 與 SVG
+
+Excel 使用 PDF.js 文字座標整理列欄，每頁一個工作表，SheetJS 0.20.3 產生 XLSX；不含 OCR、不還原合併儲存格，數值以文字保留避免誤判。複雜排版需校對。
+SVG 使用現有 PDF.js 3.11 SVGGraphics，內嵌字型與圖片使用 data URL，不依賴暫時 blob URL；逐頁匯出或 ZIP。原有向量保留、圖片不會向量化，特殊圖形效果需檢查。兩者文件不上傳，50 MB 上限，顯示處理百分比。
+Render 仍保留排版 Word 與 Ghostscript 壓縮；本次沒有刪除服務。
