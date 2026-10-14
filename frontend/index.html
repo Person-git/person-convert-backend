@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="ocr-word.js"></script>
 <style>
   :root{
     /* diazo print(重氮曬圖)配色:深墨線印在淺紙上,是藍圖的另一種傳統畫法 */
@@ -70,7 +71,10 @@
   .tl{top:-14px;left:-14px;border-right:none;border-bottom:none;}
   .tr{top:-14px;right:-14px;border-left:none;border-bottom:none;}
 
-  main{max-width:960px;margin:0 auto;display:grid;gap:28px;}
+  main{max-width:960px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:28px;}
+  #thumbs-pm{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));gap:16px 10px;padding:10px 0;}
+  #thumbs-pm > div{min-width:0;}
+  #thumbs-pm canvas{display:block;max-width:100%;height:auto;margin:0 auto;}
 
   .sheet{
     position:relative;
@@ -141,7 +145,7 @@
 
   .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px;}
   .field{
-    display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:11px;color:var(--ink-soft);
+    display:flex;flex-direction:column;gap:4px;max-width:100%;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink-soft);
   }
   .field input[type=number], .field input[type=text]{
     background:var(--blueprint);
@@ -352,8 +356,8 @@
     <div class="sheet-head">
       <div>
         <div class="idx">05 / PDF ÷ N</div>
-        <h2>分割 PDF</h2>
-        <div class="desc">指定頁碼區間擷取,或拆成單頁 ZIP</div>
+        <h2>頁面管理</h2>
+        <div class="desc">預覽縮圖、擷取區間、刪除與重排頁面，或拆成單頁 ZIP（原 05 與 09 功能）</div>
       </div>
     </div>
     <div class="dropzone" id="dz-split">
@@ -361,6 +365,16 @@
       拖曳 PDF 到這裡
     </div>
     <div class="filelist" id="list-split"></div>
+    <div id="thumbs-pm"></div>
+    <div class="row">
+      <div class="field" style="width:280px;">
+        <label>保留頁碼與順序（例：3,1,2 或 3-6；未列出的頁面不輸出）</label>
+        <input type="text" id="pm-order" placeholder="例如: 1,2,4" style="width:100%;">
+      </div>
+      <button class="run" id="btn-pm" disabled>下載指定頁面</button>
+    </div>
+    <div class="status" id="status-pm"></div>
+
     <div class="row">
       <div class="field">
         <label>起始頁</label>
@@ -373,6 +387,15 @@
       <button class="run" id="btn-split-range" disabled>擷取區間</button>
       <button class="run" id="btn-split-all" disabled>拆成單頁 ZIP</button>
     </div>
+    <div class="row">
+      <div class="field" style="width:260px;">
+        <label for="split-password">PDF 開啟密碼（如有，僅本機使用）</label>
+        <input type="password" id="split-password" autocomplete="off" placeholder="不需要密碼可留空" style="width:100%;">
+      </div>
+      <button class="run" id="btn-pm-preview" disabled>重新預覽</button>
+      <button class="run" id="btn-split-image" disabled>擷取單頁（圖片 PDF）</button>
+    </div>
+    <div class="desc" style="margin-top:10px;">受保護但可正常開啟的 PDF，可使用「起始頁」指定一頁另存為圖片 PDF。保留頁面外觀；文字不可選取，向量與互動欄位不保留。文件與密碼不上傳，原檔不會被修改。</div>
     <div class="status" id="status-split"></div>
   </section>
 
@@ -476,38 +499,13 @@
     <div class="status" id="status-rot"></div>
   </section>
 
-  <!-- PDF頁面管理 -->
-  <section class="sheet">
-    <div class="sheet-head">
-      <div>
-        <div class="idx">09 / PDF ⇅</div>
-        <h2>頁面管理</h2>
-        <div class="desc">預覽每一頁縮圖,輸入想保留的頁碼順序(可刪除、可重排)</div>
-      </div>
-    </div>
-    <div class="dropzone" id="dz-pm">
-      <input type="file" id="input-pm" accept="application/pdf">
-      拖曳 PDF 到這裡,會先產生每頁縮圖
-    </div>
-    <div class="filelist" id="list-pm"></div>
-    <div id="thumbs-pm" style="display:flex;gap:10px;overflow-x:auto;padding:10px 0;"></div>
-    <div class="row">
-      <div class="field" style="width:280px;">
-        <label>輸出頁碼順序(逗號分隔,例: 3,1,2,5 — 未列出的頁面會被刪除)</label>
-        <input type="text" id="pm-order" placeholder="例如: 1,2,4" style="width:100%;">
-      </div>
-      <button class="run" id="btn-pm" disabled>套用並下載</button>
-    </div>
-    <div class="status" id="status-pm"></div>
-  </section>
-
   <!-- PDF轉Word -->
   <section class="sheet">
     <div class="sheet-head">
       <div>
         <div class="idx">10 / PDF → DOCX</div>
         <h2>PDF 轉 Word</h2>
-        <div class="desc">將保留文字的 PDF 轉成可編輯 .docx；掃描圖片或文字已轉成輪廓的 PDF 需先 OCR，此功能不含 OCR · 檔案會上傳至後端伺服器處理,處理完成後原始檔案立即刪除</div>
+        <div class="desc">將保留文字的 PDF 轉成可編輯 .docx；掃描圖片或文字已轉成輪廓的 PDF 請使用下方「免費 OCR → Word」 · 本項會上傳至後端處理</div>
       </div>
     </div>
     <div class="dropzone" id="dz-docx">
@@ -519,6 +517,27 @@
       <button class="run" id="btn-docx" disabled>轉換為 Word</button>
     </div>
     <div class="status" id="status-docx"></div>
+  </section>
+
+  <!-- 免費瀏覽器 OCR -->
+  <section class="sheet" id="ocr-word-section">
+    <div class="sheet-head"><div>
+      <div class="idx">10B / FREE OCR → DOCX</div>
+      <h2>免費 OCR → Word</h2>
+      <div class="desc">辨識英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。保留分頁，表格與原始排版不保證還原，下載後請校對。</div>
+    </div></div>
+    <div class="dropzone" id="dz-ocr-word">
+      <input type="file" id="input-ocr-word" accept="application/pdf">
+      拖曳 PDF 到這裡，或點擊選擇檔案
+    </div>
+    <div class="filelist" id="list-ocr-word"></div>
+    <div class="row">
+      <span style="font-size:12px;color:var(--ink-soft)">辨識語言：英文 · 首次使用需下載辨識套件與語言資料</span>
+      <button class="run" id="btn-ocr-word" disabled>OCR 並下載 Word</button>
+      <button class="run" id="btn-ocr-cancel" disabled>取消</button>
+    </div>
+    <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
+    <div class="status" id="status-ocr-word" role="status" aria-live="polite"></div>
   </section>
 
   <!-- PDF轉Excel -->
@@ -657,7 +676,7 @@
 </main>
 
 <footer>
-  <span>01-09、14 全在本機端處理,不上傳 · 10-13 需上傳至後端伺服器處理</span>
+  <span>01-09、10B 免費 OCR、14 全在本機端處理，不上傳 · 10-13 需上傳至後端伺服器處理</span>
   <span>pdf-lib · pdf.js · JSZip</span>
 </footer>
 
@@ -703,6 +722,9 @@ function download(blob, filename){
 
 function setStatus(id, msg, isErr){
   const el = document.getElementById(id);
+  if(isErr && /(?:PDFDocument\.load[^\n]*encrypted|EncryptedPDFError|ignoreEncryption)/i.test(String(msg))){
+    msg='這份 PDF 有加密或編輯權限保護，目前無法直接分割或修改。若只需要頁面外觀，可使用「擷取單頁（圖片 PDF）」；若需要保留可選取文字與向量，請使用未加密的副本。';
+  }
   el.textContent = msg;
   el.className = 'status' + (isErr ? ' err' : '');
 }
@@ -805,12 +827,21 @@ document.getElementById('btn-merge').onclick = async () => {
 
 /* ---------- 04: SPLIT ---------- */
 let splitFile = null;
-setupDropzone('dz-split', 'input-split', files => {
+let splitImageBusy = false;
+setupDropzone('dz-split', 'input-split', async files => {
+  if(splitImageBusy)return;
   if(files[0] && files[0].type === 'application/pdf'){
-    splitFile = files[0];
-    renderList('list-split', [splitFile], () => { splitFile=null; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; });
+    splitFile = pmFile = files[0];
+    pmTotalPages=0;
+    document.getElementById('pm-order').value='';
+    document.getElementById('btn-pm').disabled=false;
+    document.getElementById('btn-pm-preview').disabled=false;
+    document.getElementById('split-password').value='';
+    renderList('list-split', [splitFile], () => { if(splitImageBusy)return; splitFile=pmFile=null; pmTotalPages=0; document.getElementById('thumbs-pm').innerHTML=''; document.getElementById('btn-pm').disabled=true; document.getElementById('btn-pm-preview').disabled=true; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; document.getElementById('btn-split-image').disabled=true; document.getElementById('split-password').value=''; });
     document.getElementById('btn-split-range').disabled = false;
     document.getElementById('btn-split-all').disabled = false;
+    document.getElementById('btn-split-image').disabled = false;
+    await renderPmThumbs();
   }
 });
 document.getElementById('btn-split-range').onclick = async () => {
@@ -851,6 +882,48 @@ document.getElementById('btn-split-all').onclick = async () => {
     download(zipBlob, 'split-pages.zip');
     setStatus('status-split', `完成 · 共拆出 ${total} 個檔案`);
   }catch(e){ setStatus('status-split', '錯誤: ' + e.message, true); }
+};
+
+document.getElementById('btn-split-image').onclick = async () => {
+  if(!splitFile||splitImageBusy)return;
+  splitImageBusy=true;
+  const password=document.getElementById('split-password');
+  const controls=['btn-split-range','btn-split-all','btn-split-image','input-split','split-start','split-end','split-password','btn-pm','btn-pm-preview','pm-order'].map(id=>document.getElementById(id));
+  controls.forEach(control=>control.disabled=true);
+  const started=performance.now();let phase='讀取 PDF';
+  const update=()=>setStatus('status-split',`${phase} · 已等待 ${Math.floor((performance.now()-started)/1000)} 秒`);
+  update();const timer=setInterval(update,1000);
+  let task=null,page=null,canvas=null;
+  try{
+    const number=Number(document.getElementById('split-start').value||1);
+    if(!Number.isInteger(number)||number<1)throw new Error('起始頁必須是大於 0 的整數');
+    task=pdfjsLib.getDocument({data:new Uint8Array(await splitFile.arrayBuffer()),password:password.value});
+    const pdf=await task.promise;
+    if(number>pdf.numPages)throw new Error(`頁碼 ${number} 超出範圍（共 ${pdf.numPages} 頁）`);
+    page=await pdf.getPage(number);
+    const base=page.getViewport({scale:1});
+    const scale=Math.min(200/72,4096/Math.max(base.width,base.height),Math.sqrt(8000000/(base.width*base.height)));
+    const viewport=page.getViewport({scale});
+    canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+    phase=`渲染第 ${number} 頁`;update();
+    await page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport,background:'#ffffff'}).promise;
+    const png=await canvasToPngBytes(canvas);
+    const output=await PDFDocument.create();
+    const image=await output.embedPng(png);
+    output.addPage([base.width,base.height]).drawImage(image,{x:0,y:0,width:base.width,height:base.height});
+    download(new Blob([await output.save()],{type:'application/pdf'}),`page-${number}-image.pdf`);
+    setStatus('status-split',`完成 · 已擷取第 ${number} 頁（圖片 PDF，文字不可選取）`);
+  }catch(error){
+    setStatus('status-split','錯誤: '+(error.name==='PasswordException'?'請輸入正確的 PDF 開啟密碼後重試':error.message),true);
+  }finally{
+    clearInterval(timer);
+    if(canvas)canvas.width=canvas.height=0;
+    if(page)page.cleanup();
+    if(task)await task.destroy().catch(()=>{});
+    password.value='';splitImageBusy=false;
+    controls.forEach(control=>control.disabled=false);
+    if(!splitFile)['btn-split-range','btn-split-all','btn-split-image'].forEach(id=>document.getElementById(id).disabled=true);
+  }
 };
 
 /* ---------- 共用: 把文字畫成 PNG 圖片再嵌入 PDF,避免中文字型無法用 pdf-lib 標準字型繪製的問題 ---------- */
@@ -1106,25 +1179,16 @@ document.getElementById('btn-rot').onclick = async () => {
 /* ---------- 08: 頁面管理(縮圖預覽 + 自訂順序) ---------- */
 let pmFile = null;
 let pmTotalPages = 0;
-setupDropzone('dz-pm', 'input-pm', async files => {
-  if(files[0] && files[0].type === 'application/pdf'){
-    pmFile = files[0];
-    renderList('list-pm', [pmFile], () => {
-      pmFile=null; pmTotalPages=0;
-      renderList('list-pm',[]);
-      document.getElementById('thumbs-pm').innerHTML = '';
-      document.getElementById('btn-pm').disabled=true;
-    });
-    document.getElementById('btn-pm').disabled = false;
-    await renderPmThumbs();
-  }
-});
+document.getElementById('btn-pm-preview').onclick = renderPmThumbs;
 async function renderPmThumbs(){
   const thumbsEl = document.getElementById('thumbs-pm');
   thumbsEl.innerHTML = '<span style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">縮圖產生中...</span>';
+  let loadingTask=null;
+  const file=pmFile;
   try{
-    const bytes = await pmFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
+    const bytes = await file.arrayBuffer();
+    loadingTask=pdfjsLib.getDocument({data: bytes,password:document.getElementById('split-password').value});
+    const pdf = await loadingTask.promise;
     pmTotalPages = pdf.numPages;
     thumbsEl.innerHTML = '';
     for(let i=1; i<=pdf.numPages; i++){
@@ -1138,7 +1202,6 @@ async function renderPmThumbs(){
       await page.render({canvasContext: ctx, viewport}).promise;
       const wrap = document.createElement('div');
       wrap.style.textAlign = 'center';
-      wrap.style.flex = '0 0 auto';
       const label = document.createElement('div');
       label.textContent = i;
       label.style.fontFamily = 'var(--mono)';
@@ -1147,9 +1210,12 @@ async function renderPmThumbs(){
       label.style.marginTop = '4px';
       wrap.appendChild(canvas);
       wrap.appendChild(label);
+      if(pmFile!==file)return;
       thumbsEl.appendChild(wrap);
+      page.cleanup();
     }
-  }catch(e){ thumbsEl.innerHTML = `<span style="color:var(--stamp);font-family:var(--mono);font-size:12px;">縮圖失敗: ${e.message}</span>`; }
+  }catch(e){ thumbsEl.textContent=e.name==='PasswordException'?'請在下方輸入正確的 PDF 開啟密碼，再按「重新預覽」。':'縮圖失敗: '+e.message; }
+  finally{if(loadingTask)await loadingTask.destroy().catch(()=>{});}
 }
 document.getElementById('btn-pm').onclick = async () => {
   setStatus('status-pm', '處理中...');

@@ -5,11 +5,20 @@ Cloudflare Pages 靜態前端 + Render FastAPI 後端，所有轉換使用一般
 ## 原始碼
 
 - `frontend/index.html`：以 2026-10-14 正式站 HTML 快照為基礎建立的前端維護版本。
+- `frontend/ocr-word.js`：瀏覽器英文 OCR 與可編輯 DOCX 輸出。
 - `main.py`：上傳驗證、排隊、轉換程序管理、下載與清理。
 - `conversion_worker.py`：Word、Excel、SVG、壓縮的轉換實作。
 - `HANDOVER.md`、`PERFORMANCE.md`：本機接手與測試紀錄，不納入公開版本庫。
 
 ## 免費環境的處理方式
+
+新增 10B「免費 OCR → Word」：PDF.js 在瀏覽器逐頁渲染，Tesseract.js 6.0.1（英文）辨識，再由既有 JSZip 打包成含可編輯文字的 DOCX。文件不傳到 Render 或 OCR API，不使用 AI token。
+首次使用需下載固定版本的引擎、WebAssembly 與英文語言資料（jsDelivr CDN），語言資料由辨識套件在瀏覽器快取。逐頁釋放 canvas／PDF 頁面記憶體，並支援取消與辨識進度。
+輸出保留來源分頁邊界，採文字段落與換行；不保證還原原始表格、字型或複雜排版。第一版僅支援英文；需人工校對 OCR 錯字、數字與單位。
+此功能與原有 Render Word／Excel／SVG 功能分開；原有後端轉換仍保留。
+
+原「分割 PDF」與「09 頁面管理」已合併為「05 頁面管理」，共用檔案與可換行縮圖，保留區間擷取、指定順序下載、單頁 ZIP，並新增「擷取單頁（圖片 PDF）」：使用起始頁選擇頁面，PDF.js 在本機開啟／渲染（若有開啟密碼則需正確密碼），再另存一頁 PDF。可處理能正常開啟的標準權限保護 PDF；不修改原檔、不上傳文件或密碼。輸出為圖片，失去可選取文字、向量、表單與簽章語意。若需完整保留原始物件，仍需未加密來源。
+一般分割／合併使用 pdf-lib，遇到加密／權限保護 PDF 會提示此替代方式；沒有設定 ignoreEncryption 略過檢查。
 
 同時只執行一項轉換，避免 512 MB 記憶體下多項任務互相拖慢或當機。轉換在獨立程序執行，API 健康檢查仍可回應。
 排隊最多 30 秒，超時回傳 503；實際轉換最多 120 秒，超時終止程序並回傳 504。檔案上限 25 MB。
@@ -37,6 +46,7 @@ PDF 壓縮需要 `gs`（Ghostscript）；Dockerfile 已安裝。前端可用任�
 
 後端：Render 連接 GitHub main，使用 Dockerfile。推送 main 會觸發既有自動部署。
 前端：Cloudflare Pages `convert-bench` 目前未連接 Git；部署內容應為 `frontend/`，不能上傳整個後端 repo。
+上傳前端時需包含 index.html 與 ocr-word.js，兩個檔案均放在網站根目錄。
 前端原始碼與後端一同版本管理；Cloudflare 仍使用既有的直接上傳部署方式。原始線上快照保留在本機 `reference/`。
 進度顯示涵蓋 Word、Excel、SVG、壓縮：上傳與可計算長度的下載顯示實際百分比，轉換中顯示不定進度條與等待秒數，完成後顯示 100%。現有同步 API 不提供轉換階段的百分比。
 本機前端可直接連接 https://person-convert-api.onrender.com ，不需要另外執行本機後端；亦可在底部欄位改用本機 API。

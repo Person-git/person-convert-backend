@@ -59,6 +59,15 @@ async function exercise(){
   await context.runBackendConvert('btn-docx','status-docx',()=>{throw Error('duplicate');});
   assert.equal(button.disabled,true);resolve({});await pending;
   assert.equal(button.disabled,false);
+  const statusSource=html.slice(html.indexOf('function setStatus('),html.indexOf('/* ---------- 01: IMG -> PDF'));
+  const statusElement={};
+  const statusContext={document:{getElementById:()=>statusElement}};
+  vm.createContext(statusContext);vm.runInContext(statusSource,statusContext);
+  statusContext.setStatus('status-split',"錯誤: Input document to `PDFDocument.load` is encrypted. You can use ignoreEncryption",true);
+  assert(statusElement.textContent.includes('加密或編輯權限保護'));
+  assert(!statusElement.textContent.includes('ignoreEncryption'));
+  statusContext.setStatus('status-split','錯誤: 頁碼超出範圍',true);
+  assert.equal(statusElement.textContent,'錯誤: 頁碼超出範圍');
   console.log('Upload/download percentages, indeterminate conversion, completion, errors, timeout and duplicate-click checks passed');
 }
 exercise().catch(e=>{console.error(e);process.exitCode=1;});
