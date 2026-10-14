@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>博申轉檔平台</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#f6f7f9">
+<meta name="theme-color" content="#3563aa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="博申轉檔">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -26,8 +28,8 @@
   header p{font-size:14px;color:var(--ink-soft);max-width:760px;margin:0;}
   .corner{display:none;}
   .tool-nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px;}
-  .tool-nav a{color:var(--line);background:#fff;border:1px solid var(--line-dim);border-radius:999px;padding:6px 14px;font-size:13px;text-decoration:none;transition:background .15s;}
-  .tool-nav a:hover{background:#edf1f6;}
+  .tool-nav a,.tool-nav button{color:var(--line);background:#fff;border:1px solid var(--line-dim);border-radius:999px;padding:6px 14px;font-size:13px;text-decoration:none;transition:background .15s;}
+  .tool-nav a:hover,.tool-nav button:hover{background:#edf1f6;}
   main{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;}
   .sheet{position:relative;background:#fff;border:1px solid var(--line-dim);border-radius:16px;padding:28px;box-shadow:0 2px 8px rgba(20,30,50,.025);scroll-margin-top:24px;min-width:0;}
   .sheet-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;}
@@ -58,7 +60,7 @@
   #thumbs-pm > div{min-width:0;background:#f8f9fb;border:1px solid var(--line-dim);border-radius:10px;padding:10px;}
   #thumbs-pm canvas{display:block;max-width:100%;height:auto;margin:0 auto;}
   footer{margin-top:32px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line-dim);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
-  @media(max-width:600px){body{padding:24px 14px 40px;}.sheet{padding:20px 16px;border-radius:12px;}.sheet-head h2{font-size:20px;}.dropzone{padding:24px 12px;}.tool-nav{gap:6px;}.tool-nav a{padding:5px 11px;}main{gap:16px;}}
+  @media(max-width:600px){body{padding:24px 14px 40px;}.sheet{padding:20px 16px;border-radius:12px;}.sheet-head h2{font-size:20px;}.dropzone{padding:24px 12px;}.tool-nav{gap:6px;}.tool-nav a,.tool-nav button{padding:5px 11px;}main{gap:16px;}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 
   .sheet{--accent:#3563aa;--accent-bg:#eef4fd;}
@@ -81,6 +83,8 @@
   #btn-unlock-cancel{background:#fff;color:#68717e;border-color:#d5dae2;}
   @media(max-width:600px){header{padding:24px 20px;border-radius:16px;}.hero-subtitle{font-size:14px;}}
 
+  .tool-nav button{font-family:inherit;cursor:pointer;}
+  .tool-nav button[hidden]{display:none;}
   .it-settings{background:#eef3f8;border-color:#cbd7e5;box-shadow:none;padding:0;}
   .it-settings summary{position:relative;cursor:pointer;padding:22px 56px 22px 26px;list-style:none;border-radius:16px;}
   .it-settings summary::-webkit-details-marker{display:none;}
@@ -103,7 +107,7 @@
   <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
   <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,文字轉檔與無損壓縮也可本機處理，進階模式可選後端。</p>
   <nav class="tool-nav" aria-label="常用工具">
-    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">進階設定</a>
+    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">進階設定</a><button type="button" id="install-app" hidden>安裝 App</button><a href="#pwa-help">安裝說明</a>
   </nav>
 </header>
 
@@ -585,6 +589,10 @@
     </div>
   </details>
 
+  <details class="sheet it-settings" id="pwa-help">
+    <summary><span class="it-title">安裝與離線使用</span><span class="it-hint">自願安裝，像一般 App 一樣從桌面或主畫面開啟。</span><span class="it-toggle" aria-hidden="true"></span></summary>
+    <div class="it-content"><p class="desc">電腦 Chrome／Edge 或 Android：使用瀏覽器選單的「安裝應用程式」，或上方出現的「安裝 App」按鈕。iPhone／iPad：在 Safari 分享選單選擇「加入主畫面」。</p><p class="desc">安裝不會自動進行，也不會隨開機執行。先連線開啟網站；OCR、Excel、解除保護與無損壓縮須先使用一次，讓所需套件完成下載與快取。離線時後端模式無法使用；清除瀏覽器資料後需重新下載。</p><div class="status" id="pwa-status" role="status" aria-live="polite">正在確認 App 與離線快取設定…</div></div>
+  </details>
 </main>
 
 <footer>
@@ -1938,14 +1946,27 @@ document.getElementById('btn-annotate-save').onclick = async () => {
   }catch(e){ setStatus('status-annotate', '錯誤: ' + e.message, true); }
 };
 
-/* ---------- PWA: 註冊 Service Worker,讓網頁可以被安裝、離線使用 ---------- */
+/* ---------- PWA: 僅在使用者點選後顯示安裝提示 ---------- */
+let installPrompt=null;
+const installButton=document.getElementById('install-app');
+window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;installButton.hidden=false;});
+installButton.onclick=async()=>{if(!installPrompt)return;const prompt=installPrompt;installPrompt=null;installButton.hidden=true;await prompt.prompt();await prompt.userChoice;};
+window.addEventListener('appinstalled',()=>{installPrompt=null;installButton.hidden=true;});
+/* ---------- PWA: 快取公開程式資源 ---------- */
+const pwaStatus=document.getElementById('pwa-status');
 if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => {
-      console.warn('Service Worker 註冊失敗(不影響一般網頁功能):', err);
-    });
+  window.addEventListener('load', async () => {
+    try{
+      await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+      const cache=await caches.open('person-convert-pwa-v1');
+      const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
+      const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
+      pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
+    }catch(error){pwaStatus.textContent='此瀏覽器暫時無法啟用離線快取，一般網頁功能仍可使用。';pwaStatus.className='status err';}
   });
-}
+}else{pwaStatus.textContent='此瀏覽器不支援離線快取，可用 Chrome、Edge 或 Safari 開啟正式網站。';}
+
 </script>
 
 </body>

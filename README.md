@@ -69,3 +69,13 @@ Render 保留可選的排版 Word 與 Ghostscript 壓縮服務。
 Word 預設從 PDF.js 擷取可選取文字，使用共用 DOCX 寫入器保留分頁，不還原原始表格／圖片／排版。可切換後端排版模式。無文字需改用 OCR。
 壓縮預設使用 qpdf Worker 無損重壓 Flate 與物件串流，保留畫質。若檔案沒有變小，不下載較大的版本；可選後端降低圖片解析度模式。這些模式有不同品質與大小效果，所以保留 Render，沒有刪除服務。
 繁體／簡體 OCR 可混合英文，語言資料固定於 tessdata_fast commit 87416418657359cb625c412a48b6e1d6d41c29bd；預設繁體＋英文，Word 指定 Microsoft JhengHei 東亞字型。
+
+## PWA：安裝與離線使用
+
+PWA 檔案包含 `manifest.json`、`sw.js` 與 `icons/` 的 192／512 圖示、maskable 圖示及 Apple touch 圖示。安裝採 standalone 獨立視窗，入口與範圍為 `/`；提供頁面管理與 OCR 捷徑。
+
+安裝須由使用者主動選擇，不會自動安裝、啟動或隨開機執行。電腦 Chrome／Edge 與 Android 可用瀏覽器「安裝應用程式」；支援安裝提示時，頁首會出現「安裝 App」按鈕。iPhone／iPad 請以 Safari 分享選單「加入主畫面」。不同瀏覽器的名稱與支援略有差異，Codex 內建瀏覽器不一定提供作業系統安裝入口。
+
+Service Worker 只快取固定清單的公開 HTML／JS／圖示及固定版本引擎，不快取上傳、密碼、PDF 或下載產物，也不攔截 Render API。網站本體與主要 PDF 套件在首次連線時快取；OCR、語言模型、Excel、qpdf 等大型引擎會在實際使用後快取。離線前需先連線開啟網站並使用相關功能一次；瀏覽器清除或回收快取後需重新連線。後端排版 Word／進階壓縮不支援離線。
+
+同站程式檔使用 network-first，固定版本 CDN 引擎使用 cache-first。後續部署需包含整個 `frontend/`（包含 `icons/`），不可只上傳 HTML／JS。若修改 SW 快取結構，更新 `CACHE` 版本；只清除 `person-convert-pwa-` 名稱範圍的舊快取，不清除其他網站資料。首次部署可透過瀏覽器確認 manifest 有效、SW active/controller，以及 Cache Storage 的資源清單。真正離線與作業系統安裝仍須在支援的 Chrome／Edge／Safari 裝置驗證。
