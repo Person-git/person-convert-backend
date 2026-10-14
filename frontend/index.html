@@ -14,6 +14,7 @@
 <script src="ocr-word.js"></script>
 <script src="local-convert.js"></script>
 <script src="unlock-pdf.js"></script>
+<script src="local-compress.js"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -87,7 +88,7 @@
   <div class="corner tl"></div><div class="corner tr"></div>
   <div class="brand-mark" aria-hidden="true">PDF</div><div class="eyebrow">PERSON · DOCUMENT WORKSPACE</div>
   <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
-  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,排版 Word 轉換與壓縮使用後端服務。</p>
+  <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,文字轉檔與無損壓縮也可本機處理，進階模式可選後端。</p>
   <nav class="tool-nav" aria-label="常用工具">
     <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
   </nav>
@@ -400,7 +401,7 @@
       <div>
         <div class="idx">10 / PDF → DOCX</div>
         <h2>PDF 轉 Word</h2>
-        <div class="desc">將保留文字的 PDF 轉成可編輯 .docx；掃描圖片或文字已轉成輪廓的 PDF 請使用下方「免費 OCR → Word」 · 本項會上傳至後端處理</div>
+        <div class="desc">文字版在瀏覽器擷取可選取文字，保留分頁，不還原原排版、表格與圖片。保留排版模式使用後端；掃描或輪廓文字請使用下方 OCR。</div>
       </div>
     </div>
     <div class="dropzone" id="dz-docx">
@@ -409,6 +410,7 @@
     </div>
     <div class="filelist" id="list-docx"></div>
     <div class="row">
+      <div class="field"><label for="docx-mode">轉換模式</label><select id="docx-mode" style="width:260px"><option value="local">文字版（瀏覽器，不上傳）</option><option value="layout">保留排版（後端，上傳檔案）</option></select></div>
       <button class="run" id="btn-docx" disabled>轉換為 Word</button>
     </div>
     <div class="status" id="status-docx"></div>
@@ -419,7 +421,7 @@
     <div class="sheet-head"><div>
       <div class="idx">11 / FREE OCR → DOCX</div>
       <h2>免費 OCR → Word</h2>
-      <div class="desc">辨識英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。保留分頁，表格與原始排版不保證還原，下載後請校對。</div>
+      <div class="desc">辨識中英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。保留分頁，表格與原始排版不保證還原，下載後請校對。</div>
     </div></div>
     <div class="dropzone" id="dz-ocr-word">
       <input type="file" id="input-ocr-word" accept="application/pdf">
@@ -427,7 +429,8 @@
     </div>
     <div class="filelist" id="list-ocr-word"></div>
     <div class="row">
-      <span style="font-size:12px;color:var(--ink-soft)">辨識語言：英文 · 首次使用需下載辨識套件與語言資料</span>
+      <span style="font-size:12px;color:var(--ink-soft)">首次使用所選語言需下載辨識資料 · 中英混合使用時間通常較長</span>
+      <div class="field"><label for="ocr-language">辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
       <button class="run" id="btn-ocr-word" disabled>OCR 並下載 Word</button>
       <button class="run" id="btn-ocr-cancel" disabled>取消</button>
     </div>
@@ -485,7 +488,7 @@
       <div>
         <div class="idx">14 / PDF ↓ SIZE</div>
         <h2>PDF 壓縮</h2>
-        <div class="desc">重新最佳化內嵌圖片與字型,保留文字可搜尋 · 檔案會上傳至後端伺服器處理,處理完成後原始檔案立即刪除</div>
+        <div class="desc">無損整理在瀏覽器重新壓縮 PDF 結構，保留文字、向量與圖片畫質，不保證檔案變小。若需降低圖片解析度，可選後端壓縮（檔案會上傳）。重新儲存可能影響數位簽章。</div>
       </div>
     </div>
     <div class="dropzone" id="dz-compress">
@@ -497,9 +500,9 @@
       <div class="field">
         <label title="數字越低壓縮越多、畫質越差">壓縮程度 ⓘ</label>
         <select id="compress-level" style="background:var(--blueprint);border:1px solid var(--line-dim);color:var(--line);padding:6px 8px;font-family:var(--mono);border-radius:2px;">
-          <option value="screen">高壓縮(約72dpi,檔案最小)</option>
-          <option value="ebook" selected>平衡(約150dpi,建議)</option>
-          <option value="printer">高畫質(約300dpi,檔案較大)</option>
+          <option value="local" selected>無損整理（瀏覽器，不上傳）</option><option value="screen">高壓縮（後端，上傳，約72dpi）</option>
+          <option value="ebook">平衡（後端，上傳，約150dpi）</option>
+          <option value="printer">高畫質（後端，上傳，約300dpi）</option>
         </select>
       </div>
       <button class="run" id="btn-compress" disabled>壓縮並下載</button>
@@ -555,7 +558,7 @@
       <div>
         <div class="idx">BACKEND / API</div>
         <h2>連接後端服務</h2>
-        <div class="desc">只有 10 排版 Word 轉換與 14 壓縮需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
+        <div class="desc">只有選擇「保留排版 Word」或「降低圖片解析度壓縮」時需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
       </div>
     </div>
     <div class="row">
@@ -571,7 +574,7 @@
 </main>
 
 <footer>
-  <span>頁面工具、免費 OCR、Excel、SVG 與圖片放大全在瀏覽器處理 · 排版 Word 與壓縮使用後端</span>
+  <span>預設功能皆在瀏覽器處理 · 保留排版 Word 與進階壓縮可選後端</span>
   <span>pdf-lib · pdf.js · JSZip</span>
 </footer>
 
@@ -1207,6 +1210,7 @@ async function runBackendConvert(buttonId, statusId, action){
   button.dataset.busy = '1';
   button.disabled = true;
   const started = performance.now();
+  const localProgress=document.getElementById(statusId+'-local-progress');if(localProgress)localProgress.hidden=true;
   let progress = document.getElementById(statusId + '-progress');
   if(!progress){
     progress = document.createElement('progress');
@@ -1251,6 +1255,7 @@ setupDropzone('dz-docx', 'input-docx', files => {
   }
 });
 document.getElementById('btn-docx').onclick = async () => {
+  if(document.getElementById('docx-mode').value==='local'){await LocalConvert.run('docx',docxFile);return;}
   await runBackendConvert('btn-docx', 'status-docx', progress => callBackendConvert('/convert/pdf-to-docx', docxFile, 'converted.docx', '', progress));
 };
 
@@ -1295,6 +1300,7 @@ function formatBytes(n){
   return n + ' B';
 }
 document.getElementById('btn-compress').onclick = async () => {
+  if(document.getElementById('compress-level').value==='local'){await LocalCompress.run(compressFile);return;}
   await runBackendConvert('btn-compress', 'status-compress', progress => {
     const level = document.getElementById('compress-level').value;
     return callBackendConvert('/convert/pdf-compress', compressFile, 'compressed.pdf', `?level=${encodeURIComponent(level)}`, progress);

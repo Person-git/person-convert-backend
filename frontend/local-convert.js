@@ -37,6 +37,7 @@
     const button=document.getElementById('btn-'+kind),status='status-'+kind;
     if(!file||button.dataset.busy)return;
     button.dataset.busy='1';button.disabled=true;
+    const backendProgress=document.getElementById(status+'-progress');if(backendProgress)backendProgress.hidden=true;
     const progress=document.getElementById(status+'-local-progress')||Object.assign(document.createElement('progress'),{id:status+'-local-progress',className:'conversion-progress',max:100});
     document.getElementById(status).before(progress);progress.hidden=false;progress.value=0;
     let task;
@@ -49,13 +50,15 @@
       task=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),fontExtraProperties:kind==='svg',isOffscreenCanvasSupported:false});const pdf=await task.promise;
       if(chosen>pdf.numPages)throw new Error(`頁碼超出範圍（共 ${pdf.numPages} 頁）`);
       const numbers=chosen?[chosen]:Array.from({length:pdf.numPages},(_,i)=>i+1);
-      const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg;
+      const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg;const texts=[];
       for(let i=0;i<numbers.length;i++){
         const page=await pdf.getPage(numbers[i]);
         try{
           if(sheets){
             const content=await page.getTextContent();const rows=textRows(content.items);textCount+=rows.length;
             sheets.utils.book_append_sheet(workbook,sheets.utils.aoa_to_sheet(rows),`Page ${numbers[i]}`);
+          }else if(kind==='docx'){
+            const content=await page.getTextContent();const rows=textRows(content.items);textCount+=rows.length;texts.push(rows.map(row=>row.join('\t')).join('\n'));
           }else{
             const graphics=new pdfjsLib.SVGGraphics(page.commonObjs,page.objs,true);graphics.embedFonts=true;
             const svg=await graphics.getSVG(await page.getOperatorList(),page.getViewport({scale:1}));
@@ -65,12 +68,15 @@
         progress.value=Math.round((i+1)/numbers.length*95);setStatus(status,`處理中 ${progress.value}% · ${i+1} / ${numbers.length} 頁`);
         await new Promise(resolve=>setTimeout(resolve,0));
       }
-      if(sheets){
+      if(kind==='docx'){
+        if(!textCount)throw new Error('沒有可選取文字，請改用 OCR → Word');
+        download(await OCRWord.createDocx(texts,JSZip),'text-converted.docx');
+      }else if(sheets){
         if(!textCount)throw new Error('沒有可擷取的文字，掃描圖片與輪廓文字需先 OCR');
         download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');
       }else if(chosen)download(new Blob([singleSvg],{type:'image/svg+xml'}),`page-${chosen}.svg`);
       else download(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'pages-svg.zip');
-      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
+      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${kind==='docx'?'文字版 Word，不保留原排版':sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
     }catch(error){progress.hidden=true;setStatus(status,'錯誤: '+(error.name==='PasswordException'?'此 PDF 需要開啟密碼，請使用已解鎖的副本':error.message),true);}
     finally{if(task)await task.destroy().catch(()=>{});delete button.dataset.busy;button.disabled=false;}
   }

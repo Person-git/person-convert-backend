@@ -4,7 +4,7 @@
   const OCR_OPTIONS={
     workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',
     corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',
-    langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'
+    langPath:'https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@87416418657359cb625c412a48b6e1d6d41c29bd',gzip:false
   };
   function escapeXml(value){
     return String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
@@ -26,7 +26,7 @@
     zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
     zip.file('word/document.xml',documentXml(pages));
     zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-    zip.file('word/styles.xml','<?xml version="1.0" encoding="UTF-8"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>');
+    zip.file('word/styles.xml','<?xml version="1.0" encoding="UTF-8"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Microsoft JhengHei"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>');
     return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'});
   }
   function abortError(){const error=new Error('已取消 OCR');error.name='AbortError';return error;}
@@ -106,6 +106,8 @@
     cancel.onclick=()=>controller?.abort();
     button.onclick=async()=>{
       if(!file||controller)return;
+      const language=document.getElementById('ocr-language');
+      const languages=language.value;const label=language.selectedOptions[0].textContent;language.disabled=true;
       const selected=file;controller=new AbortController();const signal=controller.signal;
       button.disabled=true;cancel.disabled=false;input.disabled=true;bar.hidden=false;bar.removeAttribute('value');
       const started=performance.now();let worker=null,pdf=null,loadingTask=null,current=0,total=0,phase='準備檔案';
@@ -118,9 +120,9 @@
         signal.addEventListener('abort',abortPdf,{once:true});
         try{pdf=await abortable(loadingTask.promise,signal);}finally{signal.removeEventListener('abort',abortPdf);}
         total=pdf.numPages;
-        phase='載入英文 OCR（首次使用需下載語言資料）';update();
+        phase=`載入${label} OCR（首次使用需下載語言資料）`;update();
         await abortable(loadOcr(),signal);checkAbort(signal);
-        const workerPromise=root.Tesseract.createWorker('eng',1,{...OCR_OPTIONS,logger:entry=>{
+        const workerPromise=root.Tesseract.createWorker(languages,1,{...OCR_OPTIONS,logger:entry=>{
           if(signal.aborted)return;
           if(entry.status==='recognizing text'&&current){
             const fraction=Math.max(0,Math.min(1,Number(entry.progress)||0));
@@ -137,7 +139,7 @@
           bar.value=Math.min(99,Math.floor((number-(stage==='done'?0:1))/count*100));update();
         },signal);
         checkAbort(signal);
-        if(!texts.some(text=>text.trim()))throw new Error('沒有辨識到英文文字，請確認畫面清晰且文件含英文');
+        if(!texts.some(text=>text.trim()))throw new Error('沒有辨識到文字，請確認畫面清晰並選擇正確語言');
         phase='辨識完成，產生可編輯 Word';bar.removeAttribute('value');update();
         const blob=await abortable(createDocx(texts,root.JSZip),signal);checkAbort(signal);
         const url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -151,7 +153,7 @@
         clearInterval(timer);
         if(worker)await worker.terminate().catch(()=>{});
         if(loadingTask)await loadingTask.destroy().catch(()=>{});
-        controller=null;button.disabled=!file;cancel.disabled=true;input.disabled=false;
+        controller=null;button.disabled=!file;cancel.disabled=true;input.disabled=false;language.disabled=false;
       }
     };
   }
