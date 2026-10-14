@@ -1,283 +1,154 @@
-"""
-博申轉檔平台 - 後端服務 (Render 部署用)
-負責前端無法用純 JS 處理的重量級轉檔功能:
-  - PDF -> Word (.docx)          使用 pdf2docx 還原版面
-  - PDF -> Excel (.xlsx)         使用 pdfplumber 擷取表格,效果依原始 PDF 表格結構而定
-  - PDF -> SVG (向量圖,可全部頁或單頁)  使用系統的 mutool(見 Dockerfile 安裝 mupdf-tools)
-  - PDF 壓縮                     使用 Ghostscript 重新最佳化圖片與字型(見 Dockerfile 安裝 ghostscript)
-
-之後要加新功能,依樣式加一個 /convert/xxx 端點即可。
-"""
-
-import glob
-import io
+"""博申轉檔平台 API. Heavy conversions run in a bounded, isolated process."""
+import asyncio
+import json
+import logging
 import os
+from pathlib import Path
 import shutil
-import subprocess
+import signal
+import sys
 import tempfile
-import uuid
-import zipfile
+import time
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 
-app = FastAPI(title="博申轉檔平台 API", version="0.2.0")
-
-# 開發階段先全開,正式上線建議改成你的 Cloudflare Pages 網域,例如:
-# allow_origins=["https://convert-bench.pages.dev"]
+app = FastAPI(title="博申轉檔平台 API", version="0.3.0")
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition", "X-Original-Size", "X-Compressed-Size"],
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Original-Size", "X-Compressed-Size",
+                    "X-Conversion-Seconds", "X-Queue-Seconds", "Server-Timing"],
 )
-
 MAX_FILE_SIZE_MB = 25
-
-
-def _check_pdf(file: UploadFile):
-    if file.content_type != "application/pdf":
-        raise HTTPException(400, "只接受 PDF 檔案")
-
-
-def _save_upload(file: UploadFile, dest_dir: str) -> str:
-    path = os.path.join(dest_dir, f"{uuid.uuid4().hex}.pdf")
-    with open(path, "wb") as f:
-        content = file.file.read()
-        if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise HTTPException(413, f"檔案超過 {MAX_FILE_SIZE_MB}MB 限制")
-        f.write(content)
-    return path
-
-
-def _cleanup_file(path: str):
-    """背景任務:回應傳送給使用者之後執行,刪除暫存輸出檔,不讓它留在伺服器磁碟上。"""
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-    except OSError:
-        pass
+WORKER_PATH = Path(__file__).with_name("conversion_worker.py")
+CONVERSION_TIMEOUT_SECONDS = 120
+QUEUE_TIMEOUT_SECONDS = 30
+# One conversion at a time protects the free instance's 512 MB memory budget.
+conversion_slot = asyncio.Semaphore(1)
+logger = logging.getLogger("uvicorn.error")
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+async def health():
+    return {"status": "ok", "version": app.version}
 
 
-@app.get("/debug/mutool")
-def debug_mutool():
-    """暫時性除錯端點:檢查 mutool 是否存在、PATH 設定、能否實際執行。確認問題後可以移除。"""
-    result = {"PATH": os.environ.get("PATH", "(未設定)")}
+async def _save_upload(file: UploadFile, directory: str):
+    if file.content_type != "application/pdf":
+        raise HTTPException(400, "只接受 PDF 檔案")
+    source = Path(directory) / "input.pdf"
+    size = 0
+    with source.open("wb") as output:
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_FILE_SIZE_MB * 1024 * 1024:
+                raise HTTPException(413, f"檔案超過 {MAX_FILE_SIZE_MB}MB 限制")
+            output.write(chunk)
+    if not size:
+        raise HTTPException(400, "PDF 檔案是空的")
+    return str(source)
+
+
+async def _stop_process(process):
+    if process.returncode is None:
+        try:
+            if os.name == "posix":
+                # Also terminate Ghostscript if the compression worker is stopped.
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+        except ProcessLookupError:
+            pass
+    await process.communicate()
+
+
+async def _execute_worker(payload):
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-X", "utf8", str(WORKER_PATH), json.dumps(payload),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        start_new_session=(os.name == "posix"),
+    )
     try:
-        which = subprocess.run(["which", "mutool"], capture_output=True, text=True, timeout=10)
-        result["which_mutool_stdout"] = which.stdout.strip()
-        result["which_mutool_stderr"] = which.stderr.strip()
-        result["which_returncode"] = which.returncode
-    except Exception as e:
-        result["which_error"] = str(e)
+        stdout, _stderr = await asyncio.wait_for(
+            process.communicate(), timeout=CONVERSION_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        await _stop_process(process)
+        raise HTTPException(504, f"轉換超過 {CONVERSION_TIMEOUT_SECONDS} 秒，請減少頁數、降低 PDF 複雜度或稍後再試")
+    except BaseException:
+        await _stop_process(process)
+        raise
     try:
-        ver = subprocess.run(["mutool", "-v"], capture_output=True, text=True, timeout=10)
-        result["mutool_stdout"] = ver.stdout.strip()
-        result["mutool_stderr"] = ver.stderr.strip()
-        result["mutool_returncode"] = ver.returncode
-    except FileNotFoundError as e:
-        result["mutool_exec_error"] = f"FileNotFoundError: {e}"
-    except Exception as e:
-        result["mutool_exec_error"] = f"{type(e).__name__}: {e}"
+        result = json.loads(stdout)
+    except (ValueError, UnicodeDecodeError):
+        # Avoid logging document contents or library diagnostics from private files.
+        logger.error("Conversion worker failed: kind=%s exit=%s", payload["kind"], process.returncode)
+        raise HTTPException(500, "轉換程序未能完成，可能是記憶體不足或 PDF 格式不支援")
+    if "status" in result:
+        raise HTTPException(result["status"], result["detail"])
+    if process.returncode:
+        raise HTTPException(500, "轉換程序異常結束")
     return result
+
+
+async def _convert(kind, file, background_tasks, **options):
+    directory = tempfile.mkdtemp(prefix="pdf-convert-")
+    started = time.perf_counter()
+    try:
+        source = await _save_upload(file, directory)
+        saved = time.perf_counter()
+        try:
+            await asyncio.wait_for(conversion_slot.acquire(), timeout=QUEUE_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            raise HTTPException(503, "伺服器正在處理其他檔案，請稍後再試", headers={"Retry-After": "30"})
+        acquired = time.perf_counter()
+        try:
+            result = await _execute_worker({"kind": kind, "source": source,
+                                            "directory": directory, **options})
+        finally:
+            conversion_slot.release()
+        finished = time.perf_counter()
+        output = Path(directory) / result["filename"]
+        if not output.is_file() or not output.stat().st_size:
+            raise HTTPException(500, "轉換未產生輸出檔案")
+        headers = result.get("headers", {})
+        headers.update({
+            "X-Conversion-Seconds": f"{finished - acquired:.3f}",
+            "X-Queue-Seconds": f"{acquired - saved:.3f}",
+            "Server-Timing": (f"save;dur={(saved - started) * 1000:.1f}, "
+                              f"queue;dur={(acquired - saved) * 1000:.1f}, "
+                              f"convert;dur={(finished - acquired) * 1000:.1f}"),
+        })
+        logger.info("conversion kind=%s pages=%s queue=%.3fs convert=%.3fs",
+                    kind, result.get("pages"), acquired - saved, finished - acquired)
+        background_tasks.add_task(shutil.rmtree, directory, ignore_errors=True)
+        return FileResponse(output, media_type=result["media_type"], filename=result["filename"],
+                            headers=headers, background=background_tasks)
+    except BaseException:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
+    finally:
+        await file.close()
 
 
 @app.post("/convert/pdf-to-docx")
 async def pdf_to_docx(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """PDF 轉 Word,使用 pdf2docx 套件還原版面與表格。"""
-    _check_pdf(file)
-    from pdf2docx import Converter  # 延遲載入,避免冷啟動變慢
-
-    with tempfile.TemporaryDirectory() as tmp:
-        src_path = _save_upload(file, tmp)
-        out_path = os.path.join(tmp, "output.docx")
-        try:
-            cv = Converter(src_path)
-            cv.convert(out_path)
-            cv.close()
-        except Exception as e:
-            raise HTTPException(500, f"轉換失敗: {e}")
-
-        final_path = f"/tmp/{uuid.uuid4().hex}.docx"
-        shutil.copy(out_path, final_path)
-        background_tasks.add_task(_cleanup_file, final_path)
-        return FileResponse(
-            final_path,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename="converted.docx",
-            background=background_tasks,
-        )
-
-
-@app.post("/convert/pdf-to-svg")
-async def pdf_to_svg(background_tasks: BackgroundTasks, file: UploadFile = File(...), page: int | None = None):
-    """
-    PDF 轉 SVG 向量圖,呼叫系統的 mutool。
-    - 有帶 page 參數(1-based):只轉那一頁,回傳單一 .svg 檔
-    - 沒帶 page 參數:轉全部頁面,打包成 .zip
-    """
-    _check_pdf(file)
-
-    def run_mutool_draw(src: str, out_path: str, page_num: int):
-        """
-        執行 mutool draw。用 %d 頁碼樣板讓 mutool 自己決定檔名(它似乎不接受單頁時的固定檔名,
-        會靜默不寫檔),執行完再去資料夾找實際產生的檔案,搬到我們要的 out_path。
-        """
-        template = os.path.join(tmp, f"__mutool_{uuid.uuid4().hex}-%d.svg")
-        try:
-            result = subprocess.run(
-                ["mutool", "draw", "-o", template, "-F", "svg", src, str(page_num)],
-                capture_output=True, timeout=60, text=True,
-            )
-        except FileNotFoundError:
-            raise HTTPException(500, "系統缺少 mutool,請確認 Dockerfile 有安裝 mupdf-tools")
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
-            raise HTTPException(500, f"mutool 轉換失敗(結束碼 {result.returncode}): {detail}")
-        matches = glob.glob(template.replace("%d", "*"))
-        if not matches:
-            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
-            raise HTTPException(500, f"mutool 執行成功但找不到輸出檔案,原始訊息: {detail}")
-        shutil.move(matches[0], out_path)
-
-    with tempfile.TemporaryDirectory() as tmp:
-        src_path = _save_upload(file, tmp)
-
-        # 用 pdfplumber 直接讀頁數,比解析 mutool 文字輸出可靠
-        import pdfplumber
-        try:
-            with pdfplumber.open(src_path) as pdf:
-                total_pages = len(pdf.pages)
-        except Exception as e:
-            raise HTTPException(500, f"無法讀取 PDF: {e}")
-
-        target_pages = [page] if page else list(range(1, total_pages + 1))
-        for p in target_pages:
-            if p < 1 or p > total_pages:
-                raise HTTPException(400, f"頁碼 {p} 超出範圍(共 {total_pages} 頁)")
-
-        if page:
-            out_path = os.path.join(tmp, "output.svg")
-            run_mutool_draw(src_path, out_path, page)
-            final_path = f"/tmp/{uuid.uuid4().hex}.svg"
-            shutil.copy(out_path, final_path)
-            background_tasks.add_task(_cleanup_file, final_path)
-            return FileResponse(
-                final_path, media_type="image/svg+xml", filename="converted.svg",
-                background=background_tasks,
-            )
-        else:
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for p in target_pages:
-                    out_path = os.path.join(tmp, f"page-{p:03d}.svg")
-                    run_mutool_draw(src_path, out_path, p)
-                    zf.write(out_path, arcname=f"page-{p:03d}.svg")
-            zip_buf.seek(0)
-            return StreamingResponse(
-                zip_buf,
-                media_type="application/zip",
-                headers={"Content-Disposition": "attachment; filename=pages-svg.zip"},
-            )
+    return await _convert("docx", file, background_tasks)
 
 
 @app.post("/convert/pdf-to-xlsx")
 async def pdf_to_xlsx(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """
-    PDF 轉 Excel,使用 pdfplumber 擷取每頁的表格,每個表格各自寫成一個工作表。
-    效果依原始 PDF 的表格線條/排版而定 —— 掃描圖檔或無明確表格線的 PDF 抓不到表格。
-    """
-    _check_pdf(file)
-    import pdfplumber
-    from openpyxl import Workbook
+    return await _convert("xlsx", file, background_tasks)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        src_path = _save_upload(file, tmp)
 
-        wb = Workbook()
-        wb.remove(wb.active)  # 移除預設空白工作表
-        sheet_count = 0
-
-        try:
-            with pdfplumber.open(src_path) as pdf:
-                for page_idx, pdf_page in enumerate(pdf.pages, start=1):
-                    tables = pdf_page.extract_tables()
-                    for t_idx, table in enumerate(tables, start=1):
-                        sheet_count += 1
-                        ws = wb.create_sheet(title=f"P{page_idx}-{t_idx}"[:31])
-                        for row in table:
-                            ws.append(["" if cell is None else cell for cell in row])
-        except Exception as e:
-            raise HTTPException(500, f"轉換失敗: {e}")
-
-        if sheet_count == 0:
-            raise HTTPException(
-                422,
-                "沒有偵測到任何表格 —— 這份 PDF 可能是掃描圖檔,或沒有明確的表格線條",
-            )
-
-        out_path = f"/tmp/{uuid.uuid4().hex}.xlsx"
-        wb.save(out_path)
-        background_tasks.add_task(_cleanup_file, out_path)
-        return FileResponse(
-            out_path,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename="converted.xlsx",
-            background=background_tasks,
-        )
+@app.post("/convert/pdf-to-svg")
+async def pdf_to_svg(background_tasks: BackgroundTasks, file: UploadFile = File(...), page: int | None = None):
+    return await _convert("svg", file, background_tasks, page=page)
 
 
 @app.post("/convert/pdf-compress")
 async def pdf_compress(background_tasks: BackgroundTasks, file: UploadFile = File(...), level: str = "ebook"):
-    """
-    PDF 壓縮,使用 Ghostscript 重新最佳化內嵌圖片與字型,保留文字可搜尋/向量內容
-    (跟「轉圖片再組回PDF」的土法煉鋼不同,不會犧牲文字清晰度)。
-    level: screen(高壓縮/低畫質,約72dpi) · ebook(平衡,約150dpi,預設) · printer(高畫質,約300dpi)
-    """
-    _check_pdf(file)
     if level not in ("screen", "ebook", "printer"):
         raise HTTPException(400, "level 必須是 screen / ebook / printer 其中之一")
-
-    with tempfile.TemporaryDirectory() as tmp:
-        src_path = _save_upload(file, tmp)
-        out_path = os.path.join(tmp, "compressed.pdf")
-        try:
-            result = subprocess.run(
-                [
-                    "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
-                    f"-dPDFSETTINGS=/{level}", "-dNOPAUSE", "-dQUIET", "-dBATCH",
-                    f"-sOutputFile={out_path}", src_path,
-                ],
-                capture_output=True, timeout=120, text=True,
-            )
-        except FileNotFoundError:
-            raise HTTPException(500, "系統缺少 Ghostscript(gs),請確認 Dockerfile 有安裝 ghostscript")
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "(無輸出訊息)").strip()
-            raise HTTPException(500, f"壓縮失敗(結束碼 {result.returncode}): {detail}")
-        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
-            raise HTTPException(500, "Ghostscript 執行成功但沒有產生檔案")
-
-        original_size = os.path.getsize(src_path)
-        compressed_size = os.path.getsize(out_path)
-
-        final_path = f"/tmp/{uuid.uuid4().hex}.pdf"
-        shutil.copy(out_path, final_path)
-        background_tasks.add_task(_cleanup_file, final_path)
-        return FileResponse(
-            final_path,
-            media_type="application/pdf",
-            filename="compressed.pdf",
-            background=background_tasks,
-            headers={
-                "X-Original-Size": str(original_size),
-                "X-Compressed-Size": str(compressed_size),
-            },
-        )
+    return await _convert("compress", file, background_tasks, level=level)

@@ -1,0 +1,12 @@
+.git
+.venv
+tmp
+output
+tests
+scripts
+frontend
+reference
+__pycache__
+.pytest_cache
+*.md
+tmp-baseline-main.py
