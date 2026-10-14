@@ -569,6 +569,11 @@
     <div class="status" id="status-upscale"></div>
   </section>
 
+  <details class="sheet it-settings" id="pwa-help">
+    <summary><span class="it-title">安裝與離線使用</span><span class="it-hint">自願安裝，像一般 App 一樣從桌面或主畫面開啟。</span><span class="it-toggle" aria-hidden="true"></span></summary>
+    <div class="it-content"><p class="desc">電腦 Chrome／Edge 或 Android：使用瀏覽器選單的「安裝應用程式」，或上方出現的「安裝 App」按鈕。iPhone／iPad：在 Safari 分享選單選擇「加入主畫面」。</p><p class="desc">安裝不會自動進行，也不會隨開機執行。先連線開啟網站；OCR、Excel、解除保護與無損壓縮須先使用一次，讓所需套件完成下載與快取。離線時後端模式無法使用；清除瀏覽器資料後需重新下載。</p><div class="status" id="pwa-status" role="status" aria-live="polite">正在確認 App 與離線快取設定…</div></div>
+  </details>
+
   <!-- IT 維護設定，預設收合 -->
   <details class="sheet it-settings" id="backend-settings">
     <summary>
@@ -589,10 +594,6 @@
     </div>
   </details>
 
-  <details class="sheet it-settings" id="pwa-help">
-    <summary><span class="it-title">安裝與離線使用</span><span class="it-hint">自願安裝，像一般 App 一樣從桌面或主畫面開啟。</span><span class="it-toggle" aria-hidden="true"></span></summary>
-    <div class="it-content"><p class="desc">電腦 Chrome／Edge 或 Android：使用瀏覽器選單的「安裝應用程式」，或上方出現的「安裝 App」按鈕。iPhone／iPad：在 Safari 分享選單選擇「加入主畫面」。</p><p class="desc">安裝不會自動進行，也不會隨開機執行。先連線開啟網站；OCR、Excel、解除保護與無損壓縮須先使用一次，讓所需套件完成下載與快取。離線時後端模式無法使用；清除瀏覽器資料後需重新下載。</p><div class="status" id="pwa-status" role="status" aria-live="polite">正在確認 App 與離線快取設定…</div></div>
-  </details>
 </main>
 
 <footer>
@@ -1959,7 +1960,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v1');
+      const cache=await caches.open('person-convert-pwa-v2');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

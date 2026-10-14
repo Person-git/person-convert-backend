@@ -1,5 +1,5 @@
 /* Cache only public application assets: never PDFs, passwords, outputs or API requests. */
-const CACHE='person-convert-pwa-v1';
+const CACHE='person-convert-pwa-v2';
 const LOCAL=['/','/index.html','/manifest.json','/ocr-word.js','/local-convert.js','/local-compress.js','/unlock-pdf.js','/unlock-worker.js','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png'];
 const LIBRARIES=[
   'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
