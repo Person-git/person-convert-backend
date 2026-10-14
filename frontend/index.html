@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="ocr-word.js"></script>
 <script src="local-convert.js"></script>
+<script src="unlock-pdf.js"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -68,17 +69,27 @@
   .sheet-head{border-left:3px solid var(--accent);padding-left:14px;}
   #page-manager{--accent:#3563aa;--accent-bg:#eef4fd;}
   #ocr-word-section{--accent:#168073;--accent-bg:#edf8f5;}
+
+  header{position:relative;padding:32px;background:linear-gradient(120deg,#eef4ff 0%,#f5f1fd 60%,#edf8f4 100%);border:1px solid #dce5f2;border-radius:20px;overflow:hidden;}
+  .brand-mark{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;background:#3563aa;color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;box-shadow:0 5px 14px #3563aa20;}
+  .eyebrow{color:#526887;font-size:11px;}
+  h1{color:#263d60;margin:8px 0 12px;}
+  .hero-subtitle{display:block;font-size:16px;letter-spacing:0;color:#62718a;font-weight:400;margin-top:8px;}
+  header p{font-size:13px;}
+  #unlock-section{--accent:#8057b1;--accent-bg:#f5f0fb;}
+  #btn-unlock-cancel{background:#fff;color:#68717e;border-color:#d5dae2;}
+  @media(max-width:600px){header{padding:24px 20px;border-radius:16px;}.hero-subtitle{font-size:14px;}}
 </style>
 </head>
 <body>
 
 <header>
   <div class="corner tl"></div><div class="corner tr"></div>
-  <div class="eyebrow">Document Toolkit</div>
-  <h1>博申轉檔平台</h1>
+  <div class="brand-mark" aria-hidden="true">PDF</div><div class="eyebrow">PERSON · DOCUMENT WORKSPACE</div>
+  <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
   <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,排版 Word 轉換與壓縮使用後端服務。</p>
   <nav class="tool-nav" aria-label="常用工具">
-    <a href="#page-manager">頁面管理</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
+    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">後端連線</a>
   </nav>
 </header>
 
@@ -232,7 +243,7 @@
       <div>
         <div class="idx">05 / PDF ÷ N</div>
         <h2>頁面管理</h2>
-        <div class="desc">預覽縮圖、擷取區間、刪除與重排頁面，或拆成單頁 ZIP（原 05 與 09 功能）</div>
+        <div class="desc">預覽縮圖、擷取區間、刪除與重排頁面，或拆成單頁 ZIP</div>
       </div>
     </div>
     <div class="dropzone" id="dz-split">
@@ -374,6 +385,15 @@
     <div class="status" id="status-rot"></div>
   </section>
 
+  <section class="sheet" id="unlock-section">
+    <div class="sheet-head"><div><div class="idx">09 / PDF UNLOCK</div><h2>解除 PDF 保護</h2><div class="desc">另存未加密的副本，保留文字、向量與頁面。無開啟密碼的權限保護檔可直接處理；有開啟密碼則需輸入正確密碼。文件與密碼不上傳。</div></div></div>
+    <div class="dropzone" id="dz-unlock"><input type="file" id="input-unlock" accept="application/pdf">拖曳 PDF 到這裡，或點擊選擇檔案</div>
+    <div class="filelist" id="list-unlock"></div>
+    <div class="row"><div class="field" style="width:280px"><label for="unlock-password">PDF 開啟密碼（無密碼可留空）</label><input type="password" id="unlock-password" autocomplete="off" style="width:100%" placeholder="請輸入已知的開啟密碼"></div><button class="run" id="btn-unlock" disabled>解除保護並下載</button><button class="run" id="btn-unlock-cancel" disabled>取消</button></div>
+    <div class="desc" style="margin-top:12px">原檔不會被修改；重新儲存會使原數位簽章失效。首次使用需下載引擎。限 50 MB，支援標準 PDF 密碼加密，不支援憑證或 DRM 保護。</div>
+    <div class="status" id="status-unlock" role="status" aria-live="polite"></div>
+  </section>
+
   <!-- PDF轉Word -->
   <section class="sheet" id="convert-word">
     <div class="sheet-head">
@@ -397,7 +417,7 @@
   <!-- 免費瀏覽器 OCR -->
   <section class="sheet" id="ocr-word-section">
     <div class="sheet-head"><div>
-      <div class="idx">10B / FREE OCR → DOCX</div>
+      <div class="idx">11 / FREE OCR → DOCX</div>
       <h2>免費 OCR → Word</h2>
       <div class="desc">辨識英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。保留分頁，表格與原始排版不保證還原，下載後請校對。</div>
     </div></div>
@@ -419,7 +439,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">11 / PDF → XLSX</div>
+        <div class="idx">12 / PDF → XLSX</div>
         <h2>PDF 轉 Excel</h2>
         <div class="desc">在瀏覽器依文字位置整理列與欄，每頁一個工作表，文件不上傳。複雜表格、合併儲存格與多欄排版需校對；掃描圖片或輪廓文字不含 OCR。</div>
       </div>
@@ -439,7 +459,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">12 / PDF → SVG</div>
+        <div class="idx">13 / PDF → SVG</div>
         <h2>PDF 轉向量圖</h2>
         <div class="desc">在瀏覽器輸出 SVG，文件不上傳；留空頁碼則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
       </div>
@@ -463,7 +483,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">13 / PDF ↓ SIZE</div>
+        <div class="idx">14 / PDF ↓ SIZE</div>
         <h2>PDF 壓縮</h2>
         <div class="desc">重新最佳化內嵌圖片與字型,保留文字可搜尋 · 檔案會上傳至後端伺服器處理,處理完成後原始檔案立即刪除</div>
       </div>
@@ -491,7 +511,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">14 / IMG ⤢</div>
+        <div class="idx">15 / IMG ⤢</div>
         <h2>圖片放大</h2>
         <div class="desc">放大圖片,可選「平滑」或「銳利」模式,不同內容類型效果不同 · 純前端運算,不會上傳。注意:這是傳統演算法放大,不是 AI 補細節,原本沒有的畫面資訊沒辦法真的補出來</div>
       </div>
@@ -535,7 +555,7 @@
       <div>
         <div class="idx">BACKEND / API</div>
         <h2>連接後端服務</h2>
-        <div class="desc">只有 10 排版 Word 轉換與 13 壓縮需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
+        <div class="desc">只有 10 排版 Word 轉換與 14 壓縮需要後端運算,已預設帶入 Render 後端網址,通常不用改;只有後端網址變動時才需要在這裡修改</div>
       </div>
     </div>
     <div class="row">

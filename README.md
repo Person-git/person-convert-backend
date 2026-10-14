@@ -59,3 +59,7 @@ PDF 壓縮需要 `gs`（Ghostscript）；Dockerfile 已安裝。前端可用任�
 Excel 使用 PDF.js 文字座標整理列欄，每頁一個工作表，SheetJS 0.20.3 產生 XLSX；不含 OCR、不還原合併儲存格，數值以文字保留避免誤判。複雜排版需校對。
 SVG 使用現有 PDF.js 3.11 SVGGraphics，內嵌字型與圖片使用 data URL，不依賴暫時 blob URL；逐頁匯出或 ZIP。原有向量保留、圖片不會向量化，特殊圖形效果需檢查。兩者文件不上傳，50 MB 上限，顯示處理百分比。
 Render 仍保留排版 Word 與 Ghostscript 壓縮；本次沒有刪除服務。
+
+## 解除 PDF 保護
+
+09 使用固定版本 qpdf-wasm 0.3.0，在一次性 Web Worker 內解除標準 PDF 加密／權限限制，不上傳文件或密碼。無開啟密碼可留空，有密碼需正確開啟密碼。保留原 PDF 物件，另存副本；原簽章會失效，不支援憑證／DRM。50 MB 上限，可取消並終止 worker，完成後清除密碼。需以 HTTP(S) 開啟網站（Worker 不支援直接 file:// 開啟）。功能編號現為 01–15，Word 10／OCR 11／Excel 12／SVG 13／壓縮 14／放大 15。
