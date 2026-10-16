@@ -73,7 +73,7 @@
   .sheet-head .idx{display:inline-block;color:var(--accent);background:var(--accent-bg);border-radius:6px;padding:3px 8px;}
   .sheet-head{border-left:3px solid var(--accent);padding-left:14px;}
   #page-manager{--accent:#3563aa;--accent-bg:#eef4fd;}
-  #ocr-word-section{--accent:#168073;--accent-bg:#edf8f5;}
+  #convert-word{--accent:#168073;--accent-bg:#edf8f5;}
 
   header{position:relative;padding:32px;background:linear-gradient(120deg,#eef4ff 0%,#f5f1fd 60%,#edf8f4 100%);border:1px solid #dce5f2;border-radius:20px;overflow:hidden;}
   .brand-mark{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;background:#3563aa;color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;box-shadow:0 5px 14px #3563aa20;}
@@ -105,6 +105,7 @@
   .pdf-guidance strong{display:block;margin-bottom:6px;}
   .pdf-guidance .row{margin-top:10px;}
   .pdf-guidance button.run{font-size:12px;padding:7px 12px;min-height:34px;}
+  #word-ocr-options[hidden]{display:none;}
 </style>
 </head>
 <body>
@@ -115,7 +116,7 @@
   <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
   <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,文字轉檔與無損壓縮也可本機處理，進階模式可選後端。</p>
   <nav class="tool-nav" aria-label="常用工具">
-    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#ocr-word-section">免費 OCR → Word</a><a href="#convert-word">格式轉換</a><a href="#backend-settings">進階設定</a><button type="button" id="install-app" hidden>安裝 App</button><a href="#pwa-help">安裝說明</a>
+    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#convert-word">PDF 轉 Word（含 OCR）</a><a href="#backend-settings">進階設定</a><button type="button" id="install-app" hidden>安裝 App</button><a href="#pwa-help">安裝說明</a>
   </nav>
 </header>
 
@@ -420,57 +421,41 @@
     <div class="status" id="status-unlock" role="status" aria-live="polite"></div>
   </section>
 
-  <!-- PDF轉Word -->
+  <!-- PDF轉Word：共用選檔、自動判斷與 OCR -->
   <section class="sheet" id="convert-word">
-    <div class="sheet-head">
-      <div>
-        <div class="idx">10 / PDF → DOCX</div>
-        <h2>PDF 轉 Word</h2>
-        <div class="desc">文字版在瀏覽器擷取可選取文字，保留分頁，不還原原排版、表格與圖片。保留排版模式使用後端；掃描或輪廓文字請使用下方 OCR。</div>
-      </div>
-    </div>
+    <span id="ocr-word-section"></span>
+    <div class="sheet-head"><div>
+      <div class="idx">10 / PDF → DOCX</div>
+      <h2>PDF 轉 Word <small style="font-size:13px;font-weight:400">含免費中英文 OCR</small></h2>
+      <div class="desc">選一次檔案，自動檢查文字層並選擇文字擷取或 OCR。預設在瀏覽器處理，文件不上傳、不使用 AI token。輸出後請校對文字與閱讀順序。</div>
+    </div></div>
     <div class="dropzone" id="dz-docx">
       <input type="file" id="input-docx" accept="application/pdf">
-      拖曳 PDF 到這裡
+      拖曳 PDF 到這裡，或點擊選擇檔案
     </div>
     <div class="filelist" id="list-docx"></div>
     <div class="pdf-guidance" id="guide-docx" role="status" aria-live="polite"></div>
     <div class="row">
-      <div class="field"><label for="docx-mode">轉換模式</label><select id="docx-mode" style="width:260px"><option value="local">文字版（瀏覽器，不上傳）</option><option value="layout">保留排版（後端，上傳檔案）</option></select></div>
-      <button class="run" id="btn-docx" disabled>轉換為 Word</button>
+      <div class="field"><label for="docx-mode">處理方式</label><select id="docx-mode" style="width:300px"><option value="auto">自動判斷（建議，本機）</option><option value="local">直接擷取文字（本機）</option><option value="ocr">使用 OCR（本機）</option><option value="layout">進階排版（後端，會上傳檔案）</option></select></div>
     </div>
-    <div class="status" id="status-docx"></div>
-  </section>
-
-  <!-- 免費瀏覽器 OCR -->
-  <section class="sheet" id="ocr-word-section">
-    <div class="sheet-head"><div>
-      <div class="idx">11 / FREE OCR → DOCX</div>
-      <h2>免費 OCR → Word</h2>
-      <div class="desc">辨識中英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。可選「可編輯文字版」或「盡量保留排版」。排版模式依文字座標估計位置與字級，使用替代字型與可編輯文字框；不還原圖片、表格線與原字型，複雜排版仍需調整。</div>
-    </div></div>
-    <div class="dropzone" id="dz-ocr-word">
-      <input type="file" id="input-ocr-word" accept="application/pdf">
-      拖曳 PDF 到這裡，或點擊選擇檔案
+    <div class="row" id="word-ocr-options" hidden>
+      <div class="field"><label for="ocr-language">OCR 辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
+      <div class="field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option></select></div>
     </div>
-    <div class="filelist" id="list-ocr-word"></div>
-    <div class="pdf-guidance" id="guide-ocr" role="status" aria-live="polite"></div>
+    <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
-      <span style="font-size:12px;color:var(--ink-soft)">首次使用所選語言需下載辨識資料 · 中英混合使用時間通常較長</span>
-      <div class="field"><label for="ocr-language">辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
-      <div class="field"><label for="ocr-output-mode">輸出模式</label><select id="ocr-output-mode" style="width:250px"><option value="text">可編輯文字版</option><option value="layout">盡量保留排版（本機，文字框）</option></select></div>
-      <button class="run" id="btn-ocr-word" disabled>OCR 並下載 Word</button>
-      <button class="run" id="btn-ocr-cancel" disabled>取消</button>
+      <button class="run" id="btn-docx" disabled>轉換並下載 Word</button>
+      <button class="run" id="btn-ocr-cancel" disabled>取消 OCR</button>
     </div>
     <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
-    <div class="status" id="status-ocr-word" role="status" aria-live="polite"></div>
+    <div class="status" id="status-docx" role="status" aria-live="polite"></div>
   </section>
 
   <!-- PDF轉Excel -->
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">12 / PDF → XLSX</div>
+        <div class="idx">11 / PDF → XLSX</div>
         <h2>PDF 轉 Excel</h2>
         <div class="desc">在瀏覽器依文字位置整理列與欄，每頁一個工作表，文件不上傳。複雜表格、合併儲存格與多欄排版需校對；掃描圖片或輪廓文字不含 OCR。</div>
       </div>
@@ -490,7 +475,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">13 / PDF → SVG</div>
+        <div class="idx">12 / PDF → SVG</div>
         <h2>PDF 轉向量圖</h2>
         <div class="desc">在瀏覽器輸出 SVG，文件不上傳；留空頁碼則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
       </div>
@@ -514,7 +499,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">14 / PDF ↓ SIZE</div>
+        <div class="idx">13 / PDF ↓ SIZE</div>
         <h2>PDF 壓縮</h2>
         <div class="desc">無損整理在瀏覽器重新壓縮 PDF 結構，保留文字、向量與圖片畫質，不保證檔案變小。若需降低圖片解析度，可選後端壓縮（檔案會上傳）。重新儲存可能影響數位簽章。</div>
       </div>
@@ -542,7 +527,7 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">15 / IMG ⤢</div>
+        <div class="idx">14 / IMG ⤢</div>
         <h2>圖片放大</h2>
         <div class="desc">放大圖片,可選「平滑」或「銳利」模式,不同內容類型效果不同 · 純前端運算,不會上傳。注意:這是傳統演算法放大,不是 AI 補細節,原本沒有的畫面資訊沒辦法真的補出來</div>
       </div>
@@ -635,7 +620,7 @@ function renderList(listId, files, onRemove){
   files.forEach((f, i) => {
     const div = document.createElement('div');
     div.className = 'fileitem';
-    div.innerHTML = `<span>${f.name} (${(f.size/1024).toFixed(1)} KB)</span>`;
+    const label=document.createElement('span');label.textContent=`${f.name} (${(f.size/1024).toFixed(1)} KB)`;div.appendChild(label);
     const btn = document.createElement('button');
     btn.textContent = '移除';
     btn.onclick = () => onRemove(i);
@@ -1280,21 +1265,43 @@ async function runBackendConvert(buttonId, statusId, action){
 }
 
 /* ---------- 09: PDF -> Word ---------- */
-let docxFile = null;
+let docxFile=null,wordBusy=false,wordInspection=null,wordChoice=null,wordSelection=0;
+const wordMode=document.getElementById('docx-mode'),wordButton=document.getElementById('btn-docx');
+function effectiveWordMode(){return wordMode.value==='auto'?(wordChoice?wordChoice.kind==='text'?'local':'ocr':null):wordMode.value;}
+function updateWordOptions(){
+  const mode=effectiveWordMode();
+  document.getElementById('word-ocr-options').hidden=mode!=='ocr';
+  document.getElementById('word-mode-help').textContent=mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。「可編輯文字版」方便修改段落；「保留文字位置（實驗版）」使用替代字型與文字框，不還原圖片、表格線、原字型或粗斜體，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
+}
+wordMode.onchange=()=>{updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
 function chooseWordFile(file){
-  if(!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
-  if(document.getElementById('btn-docx').dataset.busy)return;
-  docxFile=file;
-  renderList('list-docx',[file],()=>{docxFile=null;renderList('list-docx',[]);document.getElementById('btn-docx').disabled=true;PdfGuide.clear(document.getElementById('guide-docx'));});
-  document.getElementById('btn-docx').disabled=false;
-  void PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>{document.getElementById('docx-mode').value='local';document.getElementById('btn-docx').focus();},()=>{OCRWord.chooseFile(file);document.getElementById('ocr-word-section').scrollIntoView({block:'start'});});
+  if(wordBusy||!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
+  if(file.size>50*1024*1024){setStatus('status-docx','請使用 50 MB 以下的 PDF',true);return;}
+  const selection=++wordSelection;docxFile=file;wordChoice=null;
+  renderList('list-docx',[file],()=>{if(wordBusy)return;wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
+  setStatus('status-docx','正在檢查文字層…');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();
+  const select=mode=>{if(wordBusy)return;wordMode.value=mode;updateWordOptions();wordButton.focus();};
+  wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr')).then(result=>{
+    if(selection!==wordSelection)return;
+    wordChoice=result||null;updateWordOptions();
+    if(!wordBusy)setStatus('status-docx',result?'已準備好 · '+(effectiveWordMode()==='ocr'?'將使用 OCR':effectiveWordMode()==='layout'?'已選擇後端排版，檔案會上傳':'將直接擷取文字'): '自動判斷未完成，請依上方提示處理，或手動選擇處理方式',!result);
+  });
 }
 window.chooseWordFile=chooseWordFile;
 setupDropzone('dz-docx','input-docx',files=>chooseWordFile(files[0]));
-document.getElementById('btn-docx').onclick = async () => {
-  PdfGuide.clear(document.getElementById('guide-docx'));
-  if(document.getElementById('docx-mode').value==='local'){await LocalConvert.run('docx',docxFile);return;}
-  await runBackendConvert('btn-docx', 'status-docx', progress => callBackendConvert('/convert/pdf-to-docx', docxFile, 'converted.docx', '', progress));
+wordButton.onclick=async()=>{
+  if(wordBusy||!docxFile)return;
+  const mode=effectiveWordMode();if(!mode)return;
+  wordBusy=true;const selected=docxFile;
+  wordMode.disabled=true;document.getElementById('input-docx').disabled=true;
+  PdfGuide.clear(document.getElementById('guide-docx'));document.getElementById('progress-ocr-word').hidden=true;
+  for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}
+  try{
+    if(mode==='ocr')await OCRWord.runFile(selected);
+    else if(mode==='local')await LocalConvert.run('docx',selected);
+    else await runBackendConvert('btn-docx','status-docx',progress=>callBackendConvert('/convert/pdf-to-docx',selected,'converted.docx','',progress));
+  }finally{wordBusy=false;wordMode.disabled=false;document.getElementById('input-docx').disabled=false;updateWordOptions();}
 };
 
 /* ---------- 10: PDF -> Excel ---------- */
@@ -1975,7 +1982,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v3');
+      const cache=await caches.open('person-convert-pwa-v4');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

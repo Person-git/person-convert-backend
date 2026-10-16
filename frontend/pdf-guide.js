@@ -27,7 +27,8 @@
       const title=document.createElement('strong');title.textContent=result.message;panel.append(title);
       const note=document.createElement('div');note.textContent=`${pdf.numPages>30?'抽樣檢查 30 / '+pdf.numPages+' 頁':'已檢查 '+pdf.numPages+' 頁'}。這是初步判斷；圖片內的文字、閱讀順序與辨識品質仍需校對。`;panel.append(note);
       const actions=document.createElement('div');actions.className='row';
-      for(const [label,action] of [['使用文字版 Word',useWord],['使用 OCR',useOcr]]){const b=document.createElement('button');b.className='run';b.type='button';b.textContent=label;b.onclick=action;actions.append(b);}panel.append(actions);
+      for(const [label,action] of [['改用直接擷取文字',useWord],['改用 OCR',useOcr]]){const b=document.createElement('button');b.className='run';b.type='button';b.textContent=label;b.onclick=action;actions.append(b);}panel.append(actions);
+      return result;
     }catch(error){if(!state.cancelled)panel.textContent=error.name==='PasswordException'?'此 PDF 需要開啟密碼，請先使用「09 解除 PDF 保護」，再重新選檔。':'無法完成文字層檢查，請確認 PDF 完整後重試。';}
     finally{if(state.task)await state.task.destroy().catch(()=>{});}
   }

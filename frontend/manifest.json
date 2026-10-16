@@ -16,6 +16,6 @@
   ],
   "shortcuts": [
     {"name": "頁面管理", "url": "/#page-manager"},
-    {"name": "免費 OCR → Word", "url": "/#ocr-word-section"}
+    {"name": "PDF 轉 Word（含 OCR）", "url": "/#convert-word"}
   ]
 }

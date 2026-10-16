@@ -82,38 +82,17 @@
     return scriptPromise;
   }
   function init(){
-    const input=document.getElementById('input-ocr-word');
+    const input=document.getElementById('input-docx');
     if(!input)return;
-    const zone=document.getElementById('dz-ocr-word'),list=document.getElementById('list-ocr-word');
-    const button=document.getElementById('btn-ocr-word'),cancel=document.getElementById('btn-ocr-cancel');
-    const bar=document.getElementById('progress-ocr-word'),status=document.getElementById('status-ocr-word');
-    let file=null,controller=null;
+    const button=document.getElementById('btn-docx'),cancel=document.getElementById('btn-ocr-cancel');
+    const bar=document.getElementById('progress-ocr-word'),status=document.getElementById('status-docx');
+    let controller=null;
     function message(text,error=false){status.textContent=text;status.className='status'+(error?' err':'');}
-    function choose(files){
-      if(controller)return;
-      const candidate=files[0];
-      if(!candidate)return;
-      if(candidate.type!=='application/pdf'&&!/\.pdf$/i.test(candidate.name)){message('請選擇 PDF 檔案',true);return;}
-      if(candidate.size>50*1024*1024){message('OCR 請使用 50 MB 以下的 PDF',true);return;}
-      file=candidate;list.replaceChildren();
-      const item=document.createElement('div');item.className='fileitem';
-      const label=document.createElement('span');label.textContent=`${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-      const remove=document.createElement('button');remove.textContent='移除';
-      remove.onclick=()=>{if(controller)return;file=null;input.value='';list.replaceChildren();button.disabled=true;bar.hidden=true;message('');root.PdfGuide.clear(document.getElementById('guide-ocr'));};
-      item.append(label,remove);list.appendChild(item);button.disabled=false;bar.hidden=true;message('已選擇 PDF，文件只在本機辨識');
-      void root.PdfGuide.inspect(file,document.getElementById('guide-ocr'),()=>{root.chooseWordFile(file);document.getElementById('docx-mode').value='local';document.getElementById('convert-word').scrollIntoView({block:'start'});},()=>document.getElementById('ocr-output-mode').focus());
-    }
-    root.OCRWord.chooseFile=file=>choose([file]);
-    zone.addEventListener('click',()=>{if(!controller)input.click();});
-    input.addEventListener('change',()=>choose(input.files));
-    zone.addEventListener('dragover',event=>{event.preventDefault();zone.classList.add('drag');});
-    zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
-    zone.addEventListener('drop',event=>{event.preventDefault();zone.classList.remove('drag');choose(event.dataTransfer.files);});
     cancel.onclick=()=>controller?.abort();
-    button.onclick=async()=>{
+    root.OCRWord.runFile=async(file)=>{
       if(!file||controller)return;
       const outputMode=document.getElementById('ocr-output-mode');const layout=outputMode.value==='layout';outputMode.disabled=true;
-      root.PdfGuide.clear(document.getElementById('guide-ocr'));
+      root.PdfGuide.clear(document.getElementById('guide-docx'));
       const language=document.getElementById('ocr-language');
       const languages=language.value;const label=language.selectedOptions[0].textContent;language.disabled=true;
       const selected=file;controller=new AbortController();const signal=controller.signal;
@@ -154,7 +133,7 @@
         const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(layout?'-ocr-layout.docx':'-ocr.docx');
         document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${layout?'排版估計版，文字框可編輯，請校對位置與內容':'可編輯文字版，請校對辨識結果'}`);
+        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':'可編輯文字版，請校對辨識結果'}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${error.name==='PasswordException'?'PDF 有密碼保護，請先解鎖':error.message}`,!signal.aborted);
