@@ -12,8 +12,8 @@
         group.push(word);
       }
       if(group.length)groups.push(group);
-      if(groups.length===1)return [{text:line.text||words.map(w=>w.text).join(' '),bbox:line.bbox}];
-      return groups.map(group=>({text:group.map(w=>w.text).join(' '),bbox:{x0:Math.min(...group.map(w=>w.bbox.x0)),y0:Math.min(...group.map(w=>w.bbox.y0)),x1:Math.max(...group.map(w=>w.bbox.x1)),y1:Math.max(...group.map(w=>w.bbox.y1))}}));
+      if(groups.length===1)return [{text:line.text||words.map(w=>w.text).join(' '),bbox:line.bbox,words}];
+      return groups.map(group=>({text:group.map(w=>w.text).join(' '),words:group,bbox:{x0:Math.min(...group.map(w=>w.bbox.x0)),y0:Math.min(...group.map(w=>w.bbox.y0)),x1:Math.max(...group.map(w=>w.bbox.x1)),y1:Math.max(...group.map(w=>w.bbox.y1))}}));
     }).filter(line=>line.text.trim()&&line.bbox);
   }
   function documentXml(pages){

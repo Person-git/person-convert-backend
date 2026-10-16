@@ -42,7 +42,7 @@
     });
   }
   async function recognizePages(pdf,worker,createCanvas,onPage,signal,layout=false,reflow=true,preserve=false,preferNative=false){
-    const texts=[];let imageBytes=0;
+    const texts=[],styleCache=new Map();let imageBytes=0;
     const account=image=>{imageBytes+=(image?.length||0)*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');};
     for(let number=1;number<=pdf.numPages;number++){
       checkAbort(signal);
@@ -62,11 +62,17 @@
         if(preserve&&preferNative){const native=await root.PDFFidelity.nativePage(page,canvas,scale,signal);if(native){account(native.image);texts.push(native);onPage(number,pdf.numPages,'done');continue;}}
         const result=await abortable(worker.recognize(canvas,{},layout||reflow?{text:true,blocks:true}:{text:true}),signal);
         if(layout){
-          const lines=root.OCRLayout.linesFromBlocks(result.data.blocks),context=canvas.getContext('2d');
+          let lines=root.OCRLayout.linesFromBlocks(result.data.blocks);const context=canvas.getContext('2d');
           for(const line of lines){const cjk=/[\u3400-\u9fff]/.test(line.text);context.font='100px '+(cjk?'Microsoft JhengHei':'Arial');const units=context.measureText(line.text.trim()).width/100;const height=(line.bbox.y1-line.bbox.y0)/scale;line.fontSize=Math.min(height*(cjk?1.08:1.22),(line.bbox.x1-line.bbox.x0)/scale/Math.max(.01,units));}
-          const image=preserve?await root.PDFFidelity.graphics(page,canvas,scale,lines,false,signal):null;
+          const masks=lines;let styleStats=null;
+          if(root.OCRStyle){
+            onPage(number,pdf.numPages,'style');
+            const styled=await root.OCRStyle.analyze(lines,canvas,scale,createCanvas,signal,(done,count)=>onPage(number,pdf.numPages,'style',Math.round(done/Math.max(1,count)*100)),styleCache);
+            lines=styled.lines;styleStats=styled.stats;
+          }
+          const image=preserve?await root.PDFFidelity.graphics(page,canvas,scale,masks,false,signal):null;
           account(image);
-          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines,image});
+          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines,image,styleStats});
         }else if(reflow){
           const flow=typeof module!=='undefined'?require('./ocr-flow.js'):root.OCRFlow;
           texts.push(flow.textFromBlocks(result.data.blocks,result.data.text||''));
@@ -77,7 +83,7 @@
         page.cleanup();
       }
     }
-    return texts;
+    styleCache.clear();return texts;
   }
   let scriptPromise;
   function loadOcr(){
@@ -129,10 +135,10 @@
         workerPromise.then(created=>{if(signal.aborted)void created.terminate();},()=>{});
         worker=await abortable(workerPromise,signal);
         await abortable(worker.setParameters({tessedit_pageseg_mode:'3',user_defined_dpi:'200'}),signal);
-        const texts=await recognizePages(pdf,worker,()=>document.createElement('canvas'),(number,count,stage)=>{
+        const texts=await recognizePages(pdf,worker,()=>document.createElement('canvas'),(number,count,stage,stylePercent=0)=>{
           current=number;total=count;
-          phase=stage==='render'?`準備第 ${number}/${count} 頁`:stage==='done'?`已辨識 ${number}/${count} 頁`:`辨識第 ${number}/${count} 頁`;
-          bar.value=Math.min(99,Math.floor((number-(stage==='done'?0:1))/count*100));update();
+          phase=stage==='render'?`準備第 ${number}/${count} 頁`:stage==='style'?`比對字型與粗斜體 ${stylePercent}% · 第 ${number}/${count} 頁`:stage==='done'?`已辨識 ${number}/${count} 頁`:`辨識第 ${number}/${count} 頁`;
+          if(stage!=='style')bar.value=Math.min(99,Math.floor((number-(stage==='done'?0:1))/count*100));update();
         },signal,layout,reflow,preserve,options.preferNative);
         checkAbort(signal);
         if(!texts.some(text=>(layout?text.text:text).trim()||(preserve&&text.image)))throw new Error('沒有辨識到文字，請確認畫面清晰並選擇正確語言');
@@ -142,7 +148,9 @@
         const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':layout?'-ocr-layout.docx':'-ocr.docx');
         document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}`);
+        const styleTotals=texts.reduce((sum,page)=>{if(page.styleStats)for(const key of ['matched','uncertain','inherited','bold','italic'])sum[key]+=page.styleStats[key];return sum;},{matched:0,uncertain:0,inherited:0,bold:0,italic:0});
+        const styleNote=layout&&texts.some(page=>page.styleStats)?`；視覺比對 ${styleTotals.matched} 詞、同列推估 ${styleTotals.inherited} 詞（粗體 ${styleTotals.bold}、斜體 ${styleTotals.italic}），${styleTotals.uncertain} 詞採一般替代樣式，請校對`:'';
+        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}${styleNote}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${error.name==='PasswordException'?'PDF 有密碼保護，請先解鎖':error.message}`,!signal.aborted);
