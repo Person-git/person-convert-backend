@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="ocr-layout.js"></script>
+<script src="ocr-flow.js"></script>
 <script src="pdf-guide.js"></script>
 <script src="ocr-word.js"></script>
 <script src="local-convert.js"></script>
@@ -440,7 +441,7 @@
     </div>
     <div class="row" id="word-ocr-options" hidden>
       <div class="field"><label for="ocr-language">OCR 辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
-      <div class="field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option></select></div>
+      <div class="field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option><option value="raw">原始換行文字（不重排）</option></select></div>
     </div>
     <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
@@ -1271,7 +1272,7 @@ function effectiveWordMode(){return wordMode.value==='auto'?(wordChoice?wordChoi
 function updateWordOptions(){
   const mode=effectiveWordMode();
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
-  document.getElementById('word-mode-help').textContent=mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。「可編輯文字版」方便修改段落；「保留文字位置（實驗版）」使用替代字型與文字框，不還原圖片、表格線、原字型或粗斜體，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-mode-help').textContent=mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」；「保留文字位置（實驗版）」使用替代字型與文字框，不還原圖片、表格線、原字型或粗斜體，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
   wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
 }
 wordMode.onchange=()=>{updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
@@ -1982,7 +1983,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v4');
+      const cache=await caches.open('person-convert-pwa-v5');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

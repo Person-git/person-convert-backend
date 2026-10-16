@@ -3,6 +3,9 @@ const handlers={},stored=new Map(),fetches=[];
 const cache={match:async key=>stored.get(typeof key==='string'?key:key.url),put:async(key,value)=>stored.set(typeof key==='string'?key:key.url,value),addAll:async()=>{}};
 const context={URL,Request,Response,Promise,caches:{open:async()=>cache},self:{location:{origin:'https://convert-bench.pages.dev'},addEventListener:(name,fn)=>handlers[name]=fn},fetch:async request=>{fetches.push(request);if(context.offline)throw Error('offline');return new Response('network');}};
 vm.createContext(context);vm.runInContext(fs.readFileSync('frontend/sw.js','utf8'),context);
+const cachedAssets=vm.runInContext('LOCAL',context),html=fs.readFileSync('frontend/index.html','utf8');
+for(const script of html.matchAll(/<script src="([^":]+\.js)"/g))assert(cachedAssets.includes('/'+script[1]),'Missing offline script: '+script[1]);
+for(const asset of cachedAssets)assert(fs.existsSync('frontend'+(asset==='/'?'/index.html':asset)),'Missing cached asset: '+asset);
 function dispatch(url,method='GET',mode='cors'){
  let result;handlers.fetch({request:{url,method,mode},respondWith:p=>result=p});return result;
 }

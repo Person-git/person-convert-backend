@@ -39,7 +39,7 @@
       Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort));
     });
   }
-  async function recognizePages(pdf,worker,createCanvas,onPage,signal,layout=false){
+  async function recognizePages(pdf,worker,createCanvas,onPage,signal,layout=false,reflow=true){
     const texts=[];
     for(let number=1;number<=pdf.numPages;number++){
       checkAbort(signal);
@@ -56,11 +56,14 @@
         try{await abortable(task.promise,signal);}finally{signal.removeEventListener('abort',cancelRender);}
         checkAbort(signal);
         onPage(number,pdf.numPages,'recognize');
-        const result=await abortable(worker.recognize(canvas,{},layout?{text:true,blocks:true}:{text:true}),signal);
+        const result=await abortable(worker.recognize(canvas,{},layout||reflow?{text:true,blocks:true}:{text:true}),signal);
         if(layout){
           const lines=root.OCRLayout.linesFromBlocks(result.data.blocks),context=canvas.getContext('2d');
           for(const line of lines){const cjk=/[\u3400-\u9fff]/.test(line.text);context.font='100px '+(cjk?'Microsoft JhengHei':'Arial');const units=context.measureText(line.text.trim()).width/100;const height=(line.bbox.y1-line.bbox.y0)/scale;line.fontSize=Math.min(height*(cjk?1.08:1.22),(line.bbox.x1-line.bbox.x0)/scale/Math.max(.01,units));}
           texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines});
+        }else if(reflow){
+          const flow=typeof module!=='undefined'?require('./ocr-flow.js'):root.OCRFlow;
+          texts.push(flow.textFromBlocks(result.data.blocks,result.data.text||''));
         }else texts.push(result.data.text||'');
         onPage(number,pdf.numPages,'done');
       }finally{
@@ -91,7 +94,7 @@
     cancel.onclick=()=>controller?.abort();
     root.OCRWord.runFile=async(file)=>{
       if(!file||controller)return;
-      const outputMode=document.getElementById('ocr-output-mode');const layout=outputMode.value==='layout';outputMode.disabled=true;
+      const outputMode=document.getElementById('ocr-output-mode');const layout=outputMode.value==='layout',reflow=outputMode.value!=='raw';outputMode.disabled=true;
       root.PdfGuide.clear(document.getElementById('guide-docx'));
       const language=document.getElementById('ocr-language');
       const languages=language.value;const label=language.selectedOptions[0].textContent;language.disabled=true;
@@ -124,7 +127,7 @@
           current=number;total=count;
           phase=stage==='render'?`準備第 ${number}/${count} 頁`:stage==='done'?`已辨識 ${number}/${count} 頁`:`辨識第 ${number}/${count} 頁`;
           bar.value=Math.min(99,Math.floor((number-(stage==='done'?0:1))/count*100));update();
-        },signal,layout);
+        },signal,layout,reflow);
         checkAbort(signal);
         if(!texts.some(text=>(layout?text.text:text).trim()))throw new Error('沒有辨識到文字，請確認畫面清晰並選擇正確語言');
         if(layout&&texts.some(page=>page.text.trim()&&!page.lines.length))throw new Error('未取得排版座標，請改用可編輯文字版');
@@ -133,7 +136,7 @@
         const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(layout?'-ocr-layout.docx':'-ocr.docx');
         document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':'可編輯文字版，請校對辨識結果'}`);
+        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${error.name==='PasswordException'?'PDF 有密碼保護，請先解鎖':error.message}`,!signal.aborted);

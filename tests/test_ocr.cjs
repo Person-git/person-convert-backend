@@ -22,6 +22,11 @@ async function exercise(){
   assert.deepEqual(pageCleaned,[1,2,3]);
   assert(canvases.every(c=>c.width===0&&c.height===0));
   assert.equal(stages.filter(s=>s[2]==='done').length,3);
+  const structuredWorker={recognize:async(c,parameters,output)=>{assert.deepEqual(output,{text:true,blocks:true});return {data:{text:'First line\ncontinues.',blocks:[{paragraphs:[{lines:[{text:'First line',bbox:{x0:10,y0:10,x1:150,y1:30}},{text:'continues.',bbox:{x0:10,y0:40,x1:150,y1:60}}]}]}]}};}};
+  const joined=await ocr.recognizePages({...pdf,numPages:1},structuredWorker,canvas,()=>{},new AbortController().signal);
+  assert.equal(joined[0],'First line continues.');
+  const raw=await ocr.recognizePages({...pdf,numPages:1},{recognize:async(c,p,output)=>{assert.deepEqual(output,{text:true});return {data:{text:'Original\nlines'}};}},canvas,()=>{},new AbortController().signal,false,false);
+  assert.equal(raw[0],'Original\nlines');
   const controller=new AbortController();
   const pending=ocr.recognizePages({...pdf,numPages:1},{recognize:()=>{controller.abort();return new Promise(()=>{});}},canvas,()=>{},controller.signal);
   await assert.rejects(pending,{name:'AbortError'});
