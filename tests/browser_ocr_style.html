@@ -7,6 +7,6 @@ run.onclick=async()=>{
  const fixtures=[['Arial',false,false],['Arial',true,false],['Arial',false,true],['Arial',true,true],['Times New Roman',false,false],['Times New Roman',true,false],['Times New Roman',false,true],['Courier New',false,false],['Calibri',false,false],['Georgia',false,true],['Verdana',true,false],['Microsoft JhengHei',false,false],['Microsoft JhengHei',true,false],['Microsoft JhengHei',false,true],['Microsoft JhengHei',true,true]];
  const words=fixtures.map(([family,bold,italic],i)=>{ctx.font=`${italic?'italic ':''}${bold?'bold ':''}36px "${family}"`;ctx.fillStyle='black';const text=family==='Microsoft JhengHei'?'中文辨識':'Typography',m=ctx.measureText(text),x=40,y=65+i*70;ctx.fillText(text,x,y);return {text,confidence:99,bbox:{x0:x-m.actualBoundingBoxLeft,y0:y-m.actualBoundingBoxAscent,x1:x+m.actualBoundingBoxRight,y1:y+m.actualBoundingBoxDescent}};});
  result.textContent='Running';const start=performance.now();const detected=await OCRStyle.analyze(words.map(w=>({...w,words:[w]})),c,1,()=>document.createElement('canvas'),new AbortController().signal);
- result.textContent=JSON.stringify({seconds:(performance.now()-start)/1000,stats:detected.stats,rows:detected.lines.map((x,i)=>({expected:fixtures[i],found:[x.fontFamily,!!x.bold,!!x.italic],size:x.fontSize}))},null,2);
+ result.textContent=JSON.stringify({seconds:(performance.now()-start)/1000,stats:detected.stats,rows:detected.lines.map((line,i)=>{const x=line.runs[0];return {expected:fixtures[i],found:[x.fontFamily,!!x.bold,!!x.italic],size:x.fontSize};})},null,2);
 };
 </script>

@@ -13,5 +13,8 @@ assert(xml.includes('w:sz w:val="30"'));assert(xml.includes('w:w="16000" w:h="12
 assert.equal((xml.match(/<w:sectPr>/g)||[]).length,2);
 assert.equal((xml.match(/<w:txbxContent>/g)||[]).length,2);
 assert(!xml.includes('<w:drawing>'));
+const grouped=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'Normal Bold',bbox:{x0:10,y0:20,x1:130,y1:35},fontSize:12,runs:[{text:'Normal',fontFamily:'Arial',fontSize:12,bbox:{x0:10,y0:20,x1:70,y1:35}},{text:'Bold',fontFamily:'Arial',fontSize:12,bold:true,italic:true,bbox:{x0:80,y0:20,x1:130,y1:35}}]}]}]);
+assert.equal((grouped.match(/<w:txbxContent>/g)||[]).length,1,'Words must share a line box');
+assert.equal((grouped.match(/<w:fitText /g)||[]).length,2);assert(grouped.includes('w:val="1400"'));assert(grouped.includes('Normal '));assert(grouped.includes('<w:b/>'));assert(grouped.includes('<w:i/>'));
 console.log('Guide classification, editable positioned text, estimated size, escaping and mixed page geometry passed');
 

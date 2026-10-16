@@ -27,6 +27,39 @@
     return {text:content.items.map(i=>i.str||'').join(' '),width:view.width,height:view.height,scale:1,lines,native:true};
   }
   function check(signal){if(signal?.aborted){const e=new Error('已取消');e.name='AbortError';throw e;}}
+  async function smallImageRegions(page){
+    const ops=root.pdfjsLib?.OPS;if(!ops)return [];
+    const view=page.getViewport({scale:1}),list=await page.getOperatorList(),regions=[],stack=[];
+    const multiply=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
+    let matrix=view.transform.slice();
+    for(let i=0;i<list.fnArray.length;i++){
+      const op=list.fnArray[i],args=list.argsArray[i];
+      if(op===ops.save)stack.push(matrix.slice());
+      else if(op===ops.restore)matrix=stack.pop()||view.transform.slice();
+      else if(op===ops.transform)matrix=multiply(matrix,args);
+      else if([ops.paintImageXObject,ops.paintInlineImageXObject,ops.paintImageMaskXObject].filter(Number.isFinite).includes(op)){
+        const points=[[0,0],[1,0],[0,1],[1,1]].map(([x,y])=>[matrix[0]*x+matrix[2]*y+matrix[4],matrix[1]*x+matrix[3]*y+matrix[5]]);
+        const r={x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))};
+        if((r.x1-r.x0)*(r.y1-r.y0)<view.width*view.height*.12)regions.push(r);
+      }
+    }
+    return regions;
+  }
+  function prepareOcrOverlay(lines,scale,regions=[],pageHeight=Infinity){
+    const masks=[];let retained=0;
+    for(const line of lines){
+      if(!line.runs){masks.push(line);continue;}
+      for(const run of line.runs){
+        const symbolsOnly=!/[\p{L}\p{N}]/u.test(run.text);
+        const b=run.bbox,area=Math.max(1,(b.x1-b.x0)*(b.y1-b.y0));
+        const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
+        const footer=b.y0/scale>=pageHeight*.95;
+        run.rasterOnly=footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
+        if(run.rasterOnly)retained++;else masks.push(run);
+      }
+    }
+    return {masks,retained};
+  }
   async function graphics(page,canvas,scale,lines,native,signal){
     check(signal);
     const view=page.getViewport({scale:1}),out=document.createElement('canvas');
@@ -55,6 +88,6 @@
     const result=await nativeText(page);if(!result)return null;
     result.image=await graphics(page,canvas,scale,result.lines,true,signal);return result;
   }
-  const api={fontStyle,nativeText,nativePage,graphics};
+  const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions};
   if(typeof module!=='undefined')module.exports=api;else root.PDFFidelity=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

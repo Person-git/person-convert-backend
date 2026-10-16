@@ -58,6 +58,8 @@
           const ctx=crop.getContext('2d',{willReadFrequently:true});ctx.drawImage(canvas,-x,-y);
           const rgba=ctx.getImageData(0,0,crop.width,crop.height).data;
           const bounds=inkBounds(rgba,crop.width,crop.height),cjk=/[\u3400-\u9fff]/.test(text);
+          let dark=0;if(bounds)for(let yy=bounds.y;yy<bounds.y+bounds.height;yy++)for(let xx=bounds.x;xx<bounds.x+bounds.width;xx++){const i=(yy*crop.width+xx)*4;if(Math.min(rgba[i],rgba[i+1],rgba[i+2])<170)dark++;}
+          const symbolLike=bounds&&text.length<=2&&bounds.width/bounds.height>=.7&&bounds.width/bounds.height<=1.3&&dark/(bounds.width*bounds.height)>.4;
           let best=null;
           if(bounds&&bounds.height>=9&&text.length>=(cjk?1:3)&&text.length<=32&&(word.confidence??90)>=(cjk?80:65)){
             const width=Math.max(32,Math.min(256,text.length*16));
@@ -88,7 +90,7 @@
           const family=cjk?'Microsoft JhengHei':'Arial';
           probe.font=`100px "${family}"`;const metrics=probe.measureText(text);
           const estimated=100/scale*Math.min((b.x1-b.x0)/Math.max(1,metrics.actualBoundingBoxLeft+metrics.actualBoundingBoxRight),(b.y1-b.y0)/Math.max(1,metrics.actualBoundingBoxAscent+metrics.actualBoundingBoxDescent));
-          const item={text,bbox:{...b},fontFamily:family,fontSize:estimated,estimated:true};
+          const item={text,bbox:{...b},fontFamily:family,fontSize:estimated,confidence:word.confidence??90,symbolLike:!!symbolLike,estimated:true};
           if(accepted)Object.assign(item,{fontFamily:best.fontFamily,bold:best.bold,italic:best.italic,fontSize:best.fontSize,matched:true});
           results.push(item);
         }
@@ -103,7 +105,12 @@
           }
         }
         for(const word of results){stats.words++;if(word.matched)stats.matched++;else if(word.inherited)stats.inherited++;else stats.uncertain++;if(word.bold)stats.bold++;if(word.italic)stats.italic++;}
-        output.push(...results);onProgress(index+1,lines.length);
+        if(results.length){
+          const sizes=results.map(w=>w.fontSize).filter(Number.isFinite).sort((a,b)=>a-b);
+          const size=sizes[Math.floor(sizes.length/2)]||10;
+          output.push({...line,text:results.map(w=>w.text).join(' '),runs:results,fontSize:size,fontFamily:results[0].fontFamily,estimated:true});
+        }
+        onProgress(index+1,lines.length);
         // Yield between lines so cancellation and progress remain responsive.
         if(index%4===0)await new Promise(resolve=>setTimeout(resolve,0));
       }
