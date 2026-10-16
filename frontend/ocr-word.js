@@ -22,10 +22,12 @@
   }
   async function createDocx(pages,Zip,layout=false){
     const zip=new Zip();
-    zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+    zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
     zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
     zip.file('word/document.xml',layout?root.OCRLayout.documentXml(pages):documentXml(pages));
-    zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    let imageRelations='',imageBytes=0;
+    if(layout)pages.forEach((page,index)=>{if(page.image){imageBytes+=page.image.length*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');zip.file(`word/media/page-${index+1}.png`,page.image,{base64:true});imageRelations+=`<Relationship Id="rImage${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page-${index+1}.png"/>`;}});
+    zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+imageRelations+'</Relationships>');
     zip.file('word/styles.xml','<?xml version="1.0" encoding="UTF-8"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Microsoft JhengHei"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>');
     return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'});
   }
@@ -39,8 +41,9 @@
       Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort));
     });
   }
-  async function recognizePages(pdf,worker,createCanvas,onPage,signal,layout=false,reflow=true){
-    const texts=[];
+  async function recognizePages(pdf,worker,createCanvas,onPage,signal,layout=false,reflow=true,preserve=false,preferNative=false){
+    const texts=[];let imageBytes=0;
+    const account=image=>{imageBytes+=(image?.length||0)*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');};
     for(let number=1;number<=pdf.numPages;number++){
       checkAbort(signal);
       onPage(number,pdf.numPages,'render');
@@ -56,11 +59,14 @@
         try{await abortable(task.promise,signal);}finally{signal.removeEventListener('abort',cancelRender);}
         checkAbort(signal);
         onPage(number,pdf.numPages,'recognize');
+        if(preserve&&preferNative){const native=await root.PDFFidelity.nativePage(page,canvas,scale,signal);if(native){account(native.image);texts.push(native);onPage(number,pdf.numPages,'done');continue;}}
         const result=await abortable(worker.recognize(canvas,{},layout||reflow?{text:true,blocks:true}:{text:true}),signal);
         if(layout){
           const lines=root.OCRLayout.linesFromBlocks(result.data.blocks),context=canvas.getContext('2d');
           for(const line of lines){const cjk=/[\u3400-\u9fff]/.test(line.text);context.font='100px '+(cjk?'Microsoft JhengHei':'Arial');const units=context.measureText(line.text.trim()).width/100;const height=(line.bbox.y1-line.bbox.y0)/scale;line.fontSize=Math.min(height*(cjk?1.08:1.22),(line.bbox.x1-line.bbox.x0)/scale/Math.max(.01,units));}
-          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines});
+          const image=preserve?await root.PDFFidelity.graphics(page,canvas,scale,lines,false,signal):null;
+          account(image);
+          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines,image});
         }else if(reflow){
           const flow=typeof module!=='undefined'?require('./ocr-flow.js'):root.OCRFlow;
           texts.push(flow.textFromBlocks(result.data.blocks,result.data.text||''));
@@ -92,9 +98,9 @@
     let controller=null;
     function message(text,error=false){status.textContent=text;status.className='status'+(error?' err':'');}
     cancel.onclick=()=>controller?.abort();
-    root.OCRWord.runFile=async(file)=>{
+    root.OCRWord.runFile=async(file,options={})=>{
       if(!file||controller)return;
-      const outputMode=document.getElementById('ocr-output-mode');const layout=outputMode.value==='layout',reflow=outputMode.value!=='raw';outputMode.disabled=true;
+      const outputMode=document.getElementById('ocr-output-mode');const preserve=document.getElementById('word-preserve').checked,layout=preserve||outputMode.value==='layout',reflow=outputMode.value!=='raw';outputMode.disabled=true;
       root.PdfGuide.clear(document.getElementById('guide-docx'));
       const language=document.getElementById('ocr-language');
       const languages=language.value;const label=language.selectedOptions[0].textContent;language.disabled=true;
@@ -105,7 +111,7 @@
       const update=()=>message(`${phase} · 已用 ${elapsed()} 秒`);
       const timer=setInterval(update,1000);
       try{
-        loadingTask=root.pdfjsLib.getDocument({data:new Uint8Array(await selected.arrayBuffer())});
+        loadingTask=root.pdfjsLib.getDocument({data:new Uint8Array(await selected.arrayBuffer()),fontExtraProperties:preserve,isOffscreenCanvasSupported:false});
         const abortPdf=()=>{void loadingTask.destroy();};
         signal.addEventListener('abort',abortPdf,{once:true});
         try{pdf=await abortable(loadingTask.promise,signal);}finally{signal.removeEventListener('abort',abortPdf);}
@@ -127,16 +133,16 @@
           current=number;total=count;
           phase=stage==='render'?`準備第 ${number}/${count} 頁`:stage==='done'?`已辨識 ${number}/${count} 頁`:`辨識第 ${number}/${count} 頁`;
           bar.value=Math.min(99,Math.floor((number-(stage==='done'?0:1))/count*100));update();
-        },signal,layout,reflow);
+        },signal,layout,reflow,preserve,options.preferNative);
         checkAbort(signal);
-        if(!texts.some(text=>(layout?text.text:text).trim()))throw new Error('沒有辨識到文字，請確認畫面清晰並選擇正確語言');
+        if(!texts.some(text=>(layout?text.text:text).trim()||(preserve&&text.image)))throw new Error('沒有辨識到文字，請確認畫面清晰並選擇正確語言');
         if(layout&&texts.some(page=>page.text.trim()&&!page.lines.length))throw new Error('未取得排版座標，請改用可編輯文字版');
         phase='辨識完成，產生可編輯 Word';bar.removeAttribute('value');update();
         const blob=await abortable(createDocx(texts,root.JSZip,layout),signal);checkAbort(signal);
         const url=URL.createObjectURL(blob),link=document.createElement('a');
-        link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(layout?'-ocr-layout.docx':'-ocr.docx');
+        link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':layout?'-ocr-layout.docx':'-ocr.docx');
         document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}`);
+        bar.value=100;message(`完成 100% · ${total} 頁 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${error.name==='PasswordException'?'PDF 有密碼保護，請先解鎖':error.message}`,!signal.aborted);

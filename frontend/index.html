@@ -15,6 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="ocr-layout.js"></script>
 <script src="ocr-flow.js"></script>
+<script src="pdf-fidelity.js"></script>
 <script src="pdf-guide.js"></script>
 <script src="ocr-word.js"></script>
 <script src="local-convert.js"></script>
@@ -106,7 +107,7 @@
   .pdf-guidance strong{display:block;margin-bottom:6px;}
   .pdf-guidance .row{margin-top:10px;}
   .pdf-guidance button.run{font-size:12px;padding:7px 12px;min-height:34px;}
-  #word-ocr-options[hidden]{display:none;}
+  #word-ocr-options[hidden],#word-preserve-field[hidden],#ocr-output-field[hidden]{display:none;}
 </style>
 </head>
 <body>
@@ -441,8 +442,9 @@
     </div>
     <div class="row" id="word-ocr-options" hidden>
       <div class="field"><label for="ocr-language">OCR 辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
-      <div class="field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option><option value="raw">原始換行文字（不重排）</option></select></div>
+      <div class="field" id="ocr-output-field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option><option value="raw">原始換行文字（不重排）</option></select></div>
     </div>
+    <div class="row" id="word-preserve-field"><label style="font-size:13px"><input type="checkbox" id="word-preserve"> 保留圖片與可取得的字型（本機實驗版，圖層＋文字框）</label></div>
     <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
       <button class="run" id="btn-docx" disabled>轉換並下載 Word</button>
@@ -1272,9 +1274,12 @@ function effectiveWordMode(){return wordMode.value==='auto'?(wordChoice?wordChoi
 function updateWordOptions(){
   const mode=effectiveWordMode();
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
-  document.getElementById('word-mode-help').textContent=mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」；「保留文字位置（實驗版）」使用替代字型與文字框，不還原圖片、表格線、原字型或粗斜體，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-preserve-field').hidden=mode==='layout';
+  document.getElementById('ocr-output-field').hidden=document.getElementById('word-preserve').checked;
+  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；手動 OCR 則只估計；未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」；「保留文字位置（實驗版）」使用替代字型與文字框，不還原圖片、表格線、原字型或粗斜體，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
   wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
 }
+document.getElementById('word-preserve').onchange=updateWordOptions;
 wordMode.onchange=()=>{updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
 function chooseWordFile(file){
   if(wordBusy||!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
@@ -1295,14 +1300,14 @@ wordButton.onclick=async()=>{
   if(wordBusy||!docxFile)return;
   const mode=effectiveWordMode();if(!mode)return;
   wordBusy=true;const selected=docxFile;
-  wordMode.disabled=true;document.getElementById('input-docx').disabled=true;
+  wordMode.disabled=true;document.getElementById('word-preserve').disabled=true;document.getElementById('input-docx').disabled=true;
   PdfGuide.clear(document.getElementById('guide-docx'));document.getElementById('progress-ocr-word').hidden=true;
   for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}
   try{
-    if(mode==='ocr')await OCRWord.runFile(selected);
+    if(mode==='ocr')await OCRWord.runFile(selected,{preferNative:wordMode.value==='auto'});
     else if(mode==='local')await LocalConvert.run('docx',selected);
     else await runBackendConvert('btn-docx','status-docx',progress=>callBackendConvert('/convert/pdf-to-docx',selected,'converted.docx','',progress));
-  }finally{wordBusy=false;wordMode.disabled=false;document.getElementById('input-docx').disabled=false;updateWordOptions();}
+  }finally{wordBusy=false;wordMode.disabled=false;document.getElementById('word-preserve').disabled=false;document.getElementById('input-docx').disabled=false;updateWordOptions();}
 };
 
 /* ---------- 10: PDF -> Excel ---------- */
@@ -1983,7 +1988,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v5');
+      const cache=await caches.open('person-convert-pwa-v6');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

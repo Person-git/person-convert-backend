@@ -20,7 +20,7 @@ function file(name,kind){return {name:name+'.pdf',type:'application/pdf',size:10
   mode.value='auto';let late;choose({...file('old'),inspection:new Promise(resolve=>late=resolve)});choose(file('new','text'));await flush();late({kind:'ocr'});await flush();await button.onclick();assert.deepEqual(calls.pop(),['local','new.pdf']);
   mode.value='layout';mode.onchange();await button.onclick();assert.deepEqual(calls.pop(),['backend','new.pdf']);
   mode.value='ocr';let finish;context.OCRWord.runFile=async()=>{calls.push(['held']);await new Promise(resolve=>finish=resolve);};
-  const running=button.onclick();assert(mode.disabled);choose(file('ignored','text'));remove();await button.onclick();assert.equal(calls.filter(c=>c[0]==='held').length,1);finish();await running;assert(!mode.disabled);
+  const running=button.onclick();assert(mode.disabled);assert(el('word-preserve').disabled);choose(file('ignored','text'));remove();await button.onclick();assert.equal(calls.filter(c=>c[0]==='held').length,1);finish();await running;assert(!mode.disabled);assert(!el('word-preserve').disabled);
   remove();assert(button.disabled);assert.equal(el('list-docx').children.length,0);
   const numbers=[...html.matchAll(/class="idx">(\d+) \//g)].map(m=>Number(m[1]));assert.deepEqual(numbers,Array.from({length:14},(_,i)=>i+1));
   assert(!html.includes('id="input-ocr-word"'));assert(!html.includes('id="btn-ocr-word"'));
