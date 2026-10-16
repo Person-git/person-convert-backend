@@ -13,6 +13,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="ocr-layout.js"></script>
+<script src="pdf-guide.js"></script>
 <script src="ocr-word.js"></script>
 <script src="local-convert.js"></script>
 <script src="unlock-pdf.js"></script>
@@ -97,6 +99,12 @@
   .it-content{padding:0 26px 24px;border-top:1px solid #d6e0eb;}
   .it-content .desc{margin:18px 0 0;}
   @media(max-width:600px){.it-settings summary{padding:20px 44px 20px 18px;}.it-toggle{right:18px;}.it-content{padding:0 18px 20px;}}
+
+  .pdf-guidance:empty{display:none;}
+  .pdf-guidance{margin-top:14px;padding:14px 16px;border:1px solid #cbdcf0;background:#f2f7fe;border-radius:10px;font-size:13px;color:#405b7b;}
+  .pdf-guidance strong{display:block;margin-bottom:6px;}
+  .pdf-guidance .row{margin-top:10px;}
+  .pdf-guidance button.run{font-size:12px;padding:7px 12px;min-height:34px;}
 </style>
 </head>
 <body>
@@ -426,6 +434,7 @@
       拖曳 PDF 到這裡
     </div>
     <div class="filelist" id="list-docx"></div>
+    <div class="pdf-guidance" id="guide-docx" role="status" aria-live="polite"></div>
     <div class="row">
       <div class="field"><label for="docx-mode">轉換模式</label><select id="docx-mode" style="width:260px"><option value="local">文字版（瀏覽器，不上傳）</option><option value="layout">保留排版（後端，上傳檔案）</option></select></div>
       <button class="run" id="btn-docx" disabled>轉換為 Word</button>
@@ -438,16 +447,18 @@
     <div class="sheet-head"><div>
       <div class="idx">11 / FREE OCR → DOCX</div>
       <h2>免費 OCR → Word</h2>
-      <div class="desc">辨識中英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。保留分頁，表格與原始排版不保證還原，下載後請校對。</div>
+      <div class="desc">辨識中英文掃描檔、圖片文字或已轉成輪廓的字形，輸出可編輯 Word。全程在您的瀏覽器處理，文件不上傳、不使用 AI token。可選「可編輯文字版」或「盡量保留排版」。排版模式依文字座標估計位置與字級，使用替代字型與可編輯文字框；不還原圖片、表格線與原字型，複雜排版仍需調整。</div>
     </div></div>
     <div class="dropzone" id="dz-ocr-word">
       <input type="file" id="input-ocr-word" accept="application/pdf">
       拖曳 PDF 到這裡，或點擊選擇檔案
     </div>
     <div class="filelist" id="list-ocr-word"></div>
+    <div class="pdf-guidance" id="guide-ocr" role="status" aria-live="polite"></div>
     <div class="row">
       <span style="font-size:12px;color:var(--ink-soft)">首次使用所選語言需下載辨識資料 · 中英混合使用時間通常較長</span>
       <div class="field"><label for="ocr-language">辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
+      <div class="field"><label for="ocr-output-mode">輸出模式</label><select id="ocr-output-mode" style="width:250px"><option value="text">可編輯文字版</option><option value="layout">盡量保留排版（本機，文字框）</option></select></div>
       <button class="run" id="btn-ocr-word" disabled>OCR 並下載 Word</button>
       <button class="run" id="btn-ocr-cancel" disabled>取消</button>
     </div>
@@ -1270,14 +1281,18 @@ async function runBackendConvert(buttonId, statusId, action){
 
 /* ---------- 09: PDF -> Word ---------- */
 let docxFile = null;
-setupDropzone('dz-docx', 'input-docx', files => {
-  if(files[0] && files[0].type === 'application/pdf'){
-    docxFile = files[0];
-    renderList('list-docx', [docxFile], () => { docxFile=null; renderList('list-docx',[]); document.getElementById('btn-docx').disabled=true; });
-    document.getElementById('btn-docx').disabled = false;
-  }
-});
+function chooseWordFile(file){
+  if(!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
+  if(document.getElementById('btn-docx').dataset.busy)return;
+  docxFile=file;
+  renderList('list-docx',[file],()=>{docxFile=null;renderList('list-docx',[]);document.getElementById('btn-docx').disabled=true;PdfGuide.clear(document.getElementById('guide-docx'));});
+  document.getElementById('btn-docx').disabled=false;
+  void PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>{document.getElementById('docx-mode').value='local';document.getElementById('btn-docx').focus();},()=>{OCRWord.chooseFile(file);document.getElementById('ocr-word-section').scrollIntoView({block:'start'});});
+}
+window.chooseWordFile=chooseWordFile;
+setupDropzone('dz-docx','input-docx',files=>chooseWordFile(files[0]));
 document.getElementById('btn-docx').onclick = async () => {
+  PdfGuide.clear(document.getElementById('guide-docx'));
   if(document.getElementById('docx-mode').value==='local'){await LocalConvert.run('docx',docxFile);return;}
   await runBackendConvert('btn-docx', 'status-docx', progress => callBackendConvert('/convert/pdf-to-docx', docxFile, 'converted.docx', '', progress));
 };
@@ -1960,7 +1975,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v2');
+      const cache=await caches.open('person-convert-pwa-v3');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

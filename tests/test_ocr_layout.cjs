@@ -1,0 +1,17 @@
+const assert=require('assert'),layout=require('../frontend/ocr-layout.js'),guide=require('../frontend/pdf-guide.js');
+assert.equal(guide.classify([{chars:0,badRatio:0}]).kind,'ocr');
+assert.equal(guide.classify([{chars:50,badRatio:0},{chars:0,badRatio:0}]).kind,'mixed');
+assert.equal(guide.classify([{chars:70,badRatio:0}]).kind,'text');
+assert.equal(guide.classify([{chars:50,badRatio:.3}]).kind,'mixed');
+const line={text:'A & B',bbox:{x0:100,y0:200,x1:500,y1:240},fontSize:15};
+const lines=layout.linesFromBlocks([{paragraphs:[{lines:[line]}]}]);assert.equal(lines.length,1);
+const columns=layout.linesFromBlocks([{paragraphs:[{lines:[{text:'Left Right',bbox:{x0:10,y0:10,x1:300,y1:30},words:[{text:'Left',bbox:{x0:10,y0:10,x1:50,y1:30}},{text:'Right',bbox:{x0:250,y0:10,x1:300,y1:30}}]}]}]}]);
+assert.equal(columns.length,2);assert.equal(columns[1].bbox.x0,250);
+const xml=layout.documentXml([{width:600,height:800,scale:2,lines:[line]},{width:800,height:600,scale:2,lines:[line]}]);
+assert(xml.includes('margin-left:50.00pt'));assert(xml.includes('A &amp; B'));
+assert(xml.includes('w:sz w:val="30"'));assert(xml.includes('w:w="16000" w:h="12000"'));
+assert.equal((xml.match(/<w:sectPr>/g)||[]).length,2);
+assert.equal((xml.match(/<w:txbxContent>/g)||[]).length,2);
+assert(!xml.includes('<w:drawing>'));
+console.log('Guide classification, editable positioned text, estimated size, escaping and mixed page geometry passed');
+
