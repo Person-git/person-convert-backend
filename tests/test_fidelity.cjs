@@ -21,7 +21,15 @@ const files={};class Zip{file(name,value,options){files[name]={value,options};}a
  assert.deepEqual(regions,[{x0:30,x1:50,y0:40,y1:60}],'Protect icons but never treat a full-page scan as a small icon');
  const iconLines=[{runs:[{text:'LOGO',confidence:99,fontSize:12,bbox:{x0:31,y0:41,x1:49,y1:59}},{text:'@',confidence:99,fontSize:12,bbox:{x0:60,y0:40,x1:70,y1:60}}]}];
  assert.equal(fidelity.prepareOcrOverlay(iconLines,1,regions).retained,2);
- const footerLines=[{runs:[{text:'page',confidence:99,fontSize:12,bbox:{x0:20,y0:780,x1:40,y1:795}},{text:'\u00a2Item',confidence:99,fontSize:12,bbox:{x0:20,y0:100,x1:60,y1:120}}]}];
+ const makeLine=(text,y,h=20)=>({text,bbox:{x0:20,y0:y,x1:160,y1:y+h},runs:[{text,confidence:99,fontSize:h,bbox:{x0:20,y0:y,x1:160,y1:y+h}}]});
+ const footerLines=[makeLine('Body one',100),makeLine('Body two',300),makeLine('Body near bottom',730),makeLine('footer',780,9),makeLine('\u00a2Item',500)];
  assert.equal(fidelity.prepareOcrOverlay(footerLines,1,[],800).retained,2);
+ assert(!footerLines[2].runs[0].rasterOnly,'Bottom body stays editable');
+ assert(footerLines[3].runs[0].rasterOnly,'Small isolated footer keeps its image');
+ const continuous=[makeLine('First',100),makeLine('Second',300),makeLine('Body',745),makeLine('Last body',770)];
+ assert.equal(fidelity.prepareOcrOverlay(continuous,1,[],800).retained,0,'No fixed bottom five percent cutoff');
+ const pageNumber=[makeLine('Body',100),makeLine('More',300),makeLine('End',700),makeLine('Page 3 / 6',780,15)];
+ assert(fidelity.footerLines(pageNumber,1,800).has(pageNumber[3]));
+ assert.equal(fidelity.footerLines([makeLine('Only line',780,9)],1,800).size,0,'Insufficient body evidence does not imply footer');
  console.log('Font names/styles, native geometry, image anchors, relationships, PNG packaging and output budget passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -108,6 +108,19 @@
   .pdf-guidance strong{display:block;margin-bottom:6px;}
   .pdf-guidance .row{margin-top:10px;}
   .pdf-guidance button.run{font-size:12px;padding:7px 12px;min-height:34px;}
+  .word-quality{border:0;padding:0;margin:18px 0 0;min-width:0;}
+  .word-quality legend{font-size:13px;color:#566575;margin-bottom:8px;}
+  .quality-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;}
+  .quality-card{display:flex;align-items:flex-start;gap:9px;padding:14px;border:1px solid #d6dee7;border-radius:10px;background:#fafbfc;cursor:pointer;font-size:14px;}
+  .quality-card:has(input:checked){border-color:#138779;background:#eef9f6;}
+  .quality-card input{margin-top:3px;accent-color:#138779;}
+  .quality-card small{display:block;color:#607080;font-size:12px;margin-top:5px;line-height:1.6;}
+  .ocr-review{margin-top:16px;padding:14px 16px;border:1px solid #e5cf8e;border-radius:10px;background:#fffdf4;font-size:13px;overflow-wrap:anywhere;}
+  .ocr-review[hidden]{display:none;}
+  .ocr-review summary{cursor:pointer;color:#785813;font-weight:600;}
+  .ocr-review ol{max-height:320px;overflow:auto;padding-left:24px;}
+  .ocr-review li{padding:7px 0;line-height:1.7;}
+  .ocr-review mark{background:#ffedaa;color:#4b3b12;padding:1px 3px;border-radius:3px;}
   #word-ocr-options[hidden],#word-preserve-field[hidden],#ocr-output-field[hidden]{display:none;}
 </style>
 </head>
@@ -443,9 +456,14 @@
     </div>
     <div class="row" id="word-ocr-options" hidden>
       <div class="field"><label for="ocr-language">OCR 辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
-      <div class="field" id="ocr-output-field"><label for="ocr-output-mode">OCR 輸出模式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="layout">保留文字位置（實驗版）</option><option value="raw">原始換行文字（不重排）</option></select></div>
+      <div class="field" id="ocr-output-field"><label for="ocr-output-mode">文字換行方式</label><select id="ocr-output-mode" style="width:280px"><option value="text">可編輯文字版</option><option value="raw">原始換行文字（不重排）</option></select></div>
     </div>
-    <div class="row" id="word-preserve-field"><label style="font-size:13px"><input type="checkbox" id="word-preserve"> 保留圖片與字型樣式（本機實驗版，含 OCR 粗斜體推估）</label></div>
+    <fieldset class="word-quality" id="word-preserve-field"><legend>輸出偏好</legend>
+      <div class="quality-options">
+        <label class="quality-card"><input type="radio" name="word-quality" id="word-fast" value="fast" checked><span>快速文字<small>可編輯段落，保留分頁；不保留原圖片、字型與版面，處理較快。</small></span></label>
+        <label class="quality-card"><input type="radio" name="word-quality" id="word-look" value="look"><span>保留外觀（實驗版）<small>盡量保留圖片、文字位置與字型樣式，處理較慢；部分符號與頁尾為不可編輯圖片。</small></span></label>
+      </div><span hidden><input type="checkbox" id="word-preserve" aria-hidden="true" tabindex="-1"></span>
+    </fieldset>
     <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
       <button class="run" id="btn-docx" disabled>轉換並下載 Word</button>
@@ -453,6 +471,11 @@
     </div>
     <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
     <div class="status" id="status-docx" role="status" aria-live="polite"></div>
+    <details class="ocr-review" id="ocr-review" hidden><summary id="ocr-review-summary">OCR 校對清單</summary>
+      <p>以下是 OCR 信心低於 80 的字詞，分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
+      <p id="ocr-review-coverage"></p><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
+      <p class="desc">清單最多列出 200 個字詞；只保留在目前頁面，重選、移除檔案或開始下一次轉換即清除，不會上傳。</p>
+    </details>
   </section>
 
   <!-- PDF轉Excel -->
@@ -1277,16 +1300,21 @@ function updateWordOptions(){
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
   document.getElementById('word-preserve-field').hidden=mode==='layout';
   document.getElementById('ocr-output-field').hidden=document.getElementById('word-preserve').checked;
-  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及頁面底部 5% 的頁尾文字保留原圖，這些部分不可直接編輯。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」；「保留文字位置（實驗版）」逐詞比對常見替代字型、粗斜體與字級，以文字框保留位置；字型屬推估，不保證原字型，不還原圖片或可編輯表格線，仍需人工調整。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-fast').checked=!document.getElementById('word-preserve').checked;
+  document.getElementById('word-look').checked=document.getElementById('word-preserve').checked;
+  document.getElementById('word-fast').disabled=document.getElementById('word-look').disabled=wordBusy;
   wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
 }
 document.getElementById('word-preserve').onchange=updateWordOptions;
-wordMode.onchange=()=>{updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
+for(const id of ['word-fast','word-look'])document.getElementById(id).onchange=()=>{if(wordBusy)return;document.getElementById('word-preserve').checked=id==='word-look';if(id==='word-fast')document.getElementById('ocr-output-mode').value='text';OCRWord.clearReview?.();updateWordOptions();};
+wordMode.onchange=()=>{OCRWord.clearReview?.();updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
 function chooseWordFile(file){
   if(wordBusy||!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
   if(file.size>50*1024*1024){setStatus('status-docx','請使用 50 MB 以下的 PDF',true);return;}
+  OCRWord.clearReview?.();
   const selection=++wordSelection;docxFile=file;wordChoice=null;
-  renderList('list-docx',[file],()=>{if(wordBusy)return;wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
+  renderList('list-docx',[file],()=>{if(wordBusy)return;OCRWord.clearReview?.();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
   setStatus('status-docx','正在檢查文字層…');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();
   const select=mode=>{if(wordBusy)return;wordMode.value=mode;updateWordOptions();wordButton.focus();};
   wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr')).then(result=>{
@@ -1300,7 +1328,7 @@ setupDropzone('dz-docx','input-docx',files=>chooseWordFile(files[0]));
 wordButton.onclick=async()=>{
   if(wordBusy||!docxFile)return;
   const mode=effectiveWordMode();if(!mode)return;
-  wordBusy=true;const selected=docxFile;
+  OCRWord.clearReview?.();wordBusy=true;const selected=docxFile;updateWordOptions();
   wordMode.disabled=true;document.getElementById('word-preserve').disabled=true;document.getElementById('input-docx').disabled=true;
   PdfGuide.clear(document.getElementById('guide-docx'));document.getElementById('progress-ocr-word').hidden=true;
   for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}

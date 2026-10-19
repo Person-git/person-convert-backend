@@ -45,7 +45,32 @@
     }
     return regions;
   }
+  function footerLines(lines,scale,pageHeight){
+    const found=new Set();if(!Number.isFinite(pageHeight)||pageHeight<=0)return found;
+    const rows=[];
+    const geometry=lines.map(line=>{const boxes=line.runs?.map(r=>r.bbox).filter(Boolean)||[];const b=line.bbox||(boxes.length?{x0:Math.min(...boxes.map(b=>b.x0)),y0:Math.min(...boxes.map(b=>b.y0)),x1:Math.max(...boxes.map(b=>b.x1)),y1:Math.max(...boxes.map(b=>b.y1))}:null);return {line,b};}).filter(x=>x.b&&x.b.y1>x.b.y0).sort((a,b)=>a.b.y0-b.b.y0);
+    for(const item of geometry){
+      const top=item.b.y0/scale,bottom=item.b.y1/scale,previous=rows[rows.length-1];
+      if(previous&&top<previous.bottom-Math.min(bottom-top,previous.bottom-previous.top)*.3){previous.items.push(item.line);previous.top=Math.min(top,previous.top);previous.bottom=Math.max(bottom,previous.bottom);}
+      else rows.push({top,bottom,items:[item.line]});
+    }
+    const body=rows.filter(r=>r.top>pageHeight*.1&&r.bottom<pageHeight*.88).map(r=>r.bottom-r.top).sort((a,b)=>a-b);
+    if(body.length<2)return found;
+    const normal=body[Math.floor(body.length/2)];let footerBottom=null;
+    for(let i=1;i<rows.length;i++){
+      const row=rows[i];if(row.top<pageHeight*.9)continue;
+      const text=row.items.map(l=>l.text||l.runs?.map(w=>w.text).join(' ')||'').join(' ').trim();
+      const height=row.bottom-row.top,gap=row.top-rows[i-1].bottom;
+      const pageNumber=/^(?:page\s*)?\d+(?:\s*(?:of|\/)\s*\d+)?$/i.test(text);
+      const isolated=gap>=Math.max(normal*.9,pageHeight*.01);
+      const small=height<=normal*.85&&text.length<=180;
+      const continuation=footerBottom!==null&&row.top-footerBottom<=normal*1.5&&small;
+      if((isolated&&(small||pageNumber))||continuation){for(const line of row.items)found.add(line);footerBottom=row.bottom;}
+    }
+    return found;
+  }
   function prepareOcrOverlay(lines,scale,regions=[],pageHeight=Infinity){
+    const footers=footerLines(lines,scale,pageHeight);
     const masks=[];let retained=0;
     for(const line of lines){
       if(!line.runs){masks.push(line);continue;}
@@ -53,8 +78,9 @@
         const symbolsOnly=!/[\p{L}\p{N}]/u.test(run.text);
         const b=run.bbox,area=Math.max(1,(b.x1-b.x0)*(b.y1-b.y0));
         const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
-        const footer=b.y0/scale>=pageHeight*.95;
+        const footer=footers.has(line);
         run.rasterOnly=footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
+        run.retainedReason=run.rasterOnly?(footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
         if(run.rasterOnly)retained++;else masks.push(run);
       }
     }
@@ -88,6 +114,6 @@
     const result=await nativeText(page);if(!result)return null;
     result.image=await graphics(page,canvas,scale,result.lines,true,signal);return result;
   }
-  const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions};
+  const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions,footerLines};
   if(typeof module!=='undefined')module.exports=api;else root.PDFFidelity=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
