@@ -13,15 +13,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="ocr-layout.js"></script>
-<script src="ocr-style.js"></script>
-<script src="ocr-flow.js"></script>
-<script src="pdf-fidelity.js"></script>
-<script src="pdf-guide.js"></script>
-<script src="ocr-word.js"></script>
-<script src="local-convert.js"></script>
-<script src="unlock-pdf.js"></script>
-<script src="local-compress.js"></script>
+<script src="app-core.js?v=11"></script>
+<script src="lazy-pdf.js?v=11"></script>
+<script src="ocr-layout.js?v=11"></script>
+<script src="ocr-style.js?v=11"></script>
+<script src="ocr-flow.js?v=11"></script>
+<script src="pdf-fidelity.js?v=11"></script>
+<script src="pdf-guide.js?v=11"></script>
+<script src="ocr-word.js?v=11"></script>
+<script src="local-convert.js?v=11"></script>
+<script src="unlock-pdf.js?v=11"></script>
+<script src="local-compress.js?v=11"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -122,6 +124,12 @@
   .ocr-review li{padding:7px 0;line-height:1.7;}
   .ocr-review mark{background:#ffedaa;color:#4b3b12;padding:1px 3px;border-radius:3px;}
   #word-ocr-options[hidden],#word-preserve-field[hidden],#ocr-output-field[hidden]{display:none;}
+  .task-banner{position:sticky;top:8px;z-index:100;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;margin:12px auto;max-width:1120px;background:#edf7f5;border:1px solid #b8dcd4;border-radius:12px;font-size:13px;}
+  .task-banner[hidden],.engine-warning[hidden]{display:none;}.task-banner progress{flex:1;min-width:140px;accent-color:#138779;}.task-banner button{padding:7px 12px;border:1px solid #c5d7d3;border-radius:7px;background:white;cursor:pointer;}
+  .engine-warning{padding:16px;background:#fff3d5;color:#76521b;}
+  body[data-task-active] .conversion-progress{display:none;}body[data-task-active] .annotate-overlay{pointer-events:none!important;}
+  .lazy-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;box-sizing:border-box;background:#f3f5f8;color:#657388;font-size:12px;text-align:center;}.lazy-message[hidden]{display:none;}
+  .page-selection{width:min(100%,320px);}.page-selection input{width:100%;box-sizing:border-box;}
 </style>
 </head>
 <body>
@@ -136,6 +144,9 @@
   </nav>
 </header>
 
+<div id="task-banner" class="task-banner" role="status" aria-live="polite" hidden><strong id="task-label"></strong><span id="task-clock"></span><progress id="task-progress" max="100" aria-label="目前工作進度"></progress><button id="task-cancel" type="button">取消目前工作</button></div>
+<div id="engine-warning" class="engine-warning" role="alert" hidden>基本工具套件尚未載入，請確認網路後重新整理；離線使用前需先連線開啟一次。</div>
+<dialog id="annotation-editor" style="width:min(480px,85vw);border:1px solid #cbd5e1;border-radius:14px;padding:22px;"><form method="dialog"><h3 id="annotation-editor-title"></h3><textarea id="annotation-editor-text" rows="5" maxlength="4000" style="width:100%;box-sizing:border-box;padding:10px;font:inherit;"></textarea><div class="row"><button value="save" class="run">確定</button><button value="cancel" class="run">取消</button></div></form></dialog>
 <main>
 
   <!-- PDF瀏覽與備註 -->
@@ -159,6 +170,7 @@
       <button class="run" id="tool-note" type="button">加備註</button>
       <button class="run" id="tool-text" type="button">加文字</button>
       <button class="run" id="btn-annotate-clear" type="button" style="background:none;border:1px solid var(--stamp);color:var(--stamp);">清除全部標記</button>
+      <button class="run" id="btn-annotate-undo" type="button" disabled title="Ctrl+Z">復原</button><button class="run" id="btn-annotate-redo" type="button" disabled title="Ctrl+Shift+Z 或 Ctrl+Y">重做</button>
       <button class="run" id="btn-annotate-save" type="button">儲存並下載</button>
     </div>
     <div id="annotate-color-options" class="row" style="display:none;">
@@ -220,6 +232,7 @@
       拖曳 PDF 到這裡,或點擊選擇檔案
     </div>
     <div class="filelist" id="list-p2i"></div>
+    <div class="row"><div class="field page-selection"><label for="p2i-pages">指定頁面（留空＝全部，例：1,3,5-7）</label><input id="p2i-pages" type="text" placeholder="依輸入順序，重複頁碼只輸出一次"></div></div>
     <div class="row">
       <div class="field">
         <label title="數字越大,圖片解析度越高、檔案也越大,轉換速度也會變慢">解析度倍率 ⓘ</label>
@@ -235,7 +248,7 @@
       <button class="run" id="btn-p2i" disabled>轉換為圖片</button>
     </div>
     <div style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:8px;">
-      附註:解析度倍率控制圖片清晰度,倍率 1 約為螢幕等級(檔案小、可能較模糊),2(預設)約為印刷等級,3-4 適合需要放大看細節的用途,6-8 為極高解析度、檔案會非常大且轉換明顯變慢,大型 PDF 不建議用這麼高。輸出格式方面,PNG 無失真、檔案較大,適合需要清晰邊緣或後續編輯的圖片;JPG 為壓縮格式、檔案較小,適合單純瀏覽或分享用途。
+      單頁最多 800 萬像素／4096px，超過會自動降低實際倍率。附註:解析度倍率控制圖片清晰度,倍率 1 約為螢幕等級(檔案小、可能較模糊),2(預設)約為印刷等級,3-4 適合需要放大看細節的用途,6-8 為極高解析度、檔案會非常大且轉換明顯變慢,大型 PDF 不建議用這麼高。輸出格式方面,PNG 無失真、檔案較大,適合需要清晰邊緣或後續編輯的圖片;JPG 為壓縮格式、檔案較小,適合單純瀏覽或分享用途。
     </div>
     <div class="status" id="status-p2i"></div>
   </section>
@@ -246,7 +259,7 @@
       <div>
         <div class="idx">03 / IMG → PDF</div>
         <h2>圖檔合併為 PDF</h2>
-        <div class="desc">支援 JPG / PNG,依加入順序排列頁面,原尺寸嵌入不失真</div>
+        <div class="desc">支援 JPG / PNG，依加入順序排列；驗證實際格式，單張限 1600 萬像素，原尺寸嵌入</div>
       </div>
     </div>
     <div class="dropzone" id="dz-img">
@@ -450,6 +463,7 @@
       拖曳 PDF 到這裡，或點擊選擇檔案
     </div>
     <div class="filelist" id="list-docx"></div>
+    <div class="row"><div class="field page-selection"><label for="docx-pages">指定頁面（留空＝全部，例：1,3,5-7）</label><input id="docx-pages" type="text" placeholder="依輸入順序，重複頁碼只輸出一次"></div></div>
     <div class="pdf-guidance" id="guide-docx" role="status" aria-live="polite"></div>
     <div class="row">
       <div class="field"><label for="docx-mode">處理方式</label><select id="docx-mode" style="width:300px"><option value="auto">自動判斷（建議，本機）</option><option value="local">直接擷取文字（本機）</option><option value="ocr">使用 OCR（本機）</option><option value="layout">進階排版（後端，會上傳檔案）</option></select></div>
@@ -492,6 +506,7 @@
       拖曳 PDF 到這裡
     </div>
     <div class="filelist" id="list-xlsx"></div>
+    <div class="row"><div class="field page-selection"><label for="xlsx-pages">指定頁面（留空＝全部，例：1,3,5-7）</label><input id="xlsx-pages" type="text" placeholder="依輸入順序，重複頁碼只輸出一次"></div></div>
     <div class="row">
       <button class="run" id="btn-xlsx" disabled>轉換為 Excel</button>
     </div>
@@ -504,7 +519,7 @@
       <div>
         <div class="idx">12 / PDF → SVG</div>
         <h2>PDF 轉向量圖</h2>
-        <div class="desc">在瀏覽器輸出 SVG，文件不上傳；留空頁碼則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
+        <div class="desc">在瀏覽器輸出 SVG，文件不上傳；可指定頁碼／區間，留空則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
       </div>
     </div>
     <div class="dropzone" id="dz-svg">
@@ -514,7 +529,7 @@
     <div class="filelist" id="list-svg"></div>
     <div class="row">
       <div class="field" style="width:180px;">
-        <label>頁碼(留空=全部頁面)</label>
+        <label>指定頁面（留空＝全部，例：1,3,5-7）</label>
         <input type="text" id="svg-page" placeholder="例如: 1" style="width:100%;">
       </div>
       <button class="run" id="btn-svg" disabled>轉換為 SVG</button>
@@ -625,20 +640,22 @@
 </footer>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const { PDFDocument, StandardFonts, rgb, degrees } = window.PDFLib||{};
+if(!window.pdfjsLib||!PDFDocument||!window.JSZip||!window.AppCore||!window.LazyPDF)document.getElementById('engine-warning').hidden=false;
 
-function setupDropzone(dzId, inputId, onFiles){
-  const dz = document.getElementById(dzId);
-  const input = document.getElementById(inputId);
-  dz.addEventListener('click', () => input.click());
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.classList.remove('drag');
-    onFiles(Array.from(e.dataTransfer.files));
-  });
-  input.addEventListener('change', () => onFiles(Array.from(input.files)));
+function setupDropzone(dzId,inputId,onFiles){
+  const dz=document.getElementById(dzId),input=document.getElementById(inputId);let generation=0;
+  const submit=async files=>{
+    if(AppTasks.busy||!files.length)return;const current=++generation;
+    try{const checked=await AppCore.normalizeFiles(files,input.accept);if(current!==generation||AppTasks.busy)return;await onFiles(checked);}
+    catch(error){const status=dz.closest('.sheet').querySelector('.status');if(status)setStatus(status.id,AppCore.errorMessage(error),true);}
+  };
+  dz.addEventListener('click',event=>{if(event.target!==input&&!input.disabled&&!AppTasks.busy)input.click();});
+  dz.addEventListener('dragover',e=>{e.preventDefault();if(!AppTasks.busy)dz.classList.add('drag');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');void submit(Array.from(e.dataTransfer.files));});
+  input.addEventListener('change',()=>void submit(Array.from(input.files)));
 }
 
 function renderList(listId, files, onRemove){
@@ -657,14 +674,17 @@ function renderList(listId, files, onRemove){
 }
 
 function download(blob, filename){
+  AppTasks.check();if(blob.size>128*1024*1024)throw Error('輸出超過 128 MB，請減少頁數或降低解析度後重試');
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
+  document.body.appendChild(a); a.click(); a.remove();AppTasks.downloaded();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 function setStatus(id, msg, isErr){
+  if(AppTasks.signal?.aborted)return;
+  if(isErr)msg=AppCore.errorMessage(msg);AppTasks.observe(msg,isErr);
   const el = document.getElementById(id);
   if(isErr && /(?:PDFDocument\.load[^\n]*encrypted|EncryptedPDFError|ignoreEncryption)/i.test(String(msg))){
     msg='這份 PDF 有加密或編輯權限保護，目前無法直接分割或修改。若只需要頁面外觀，可使用「擷取單頁（圖片 PDF）」；若需要保留可選取文字與向量，請使用未加密的副本。';
@@ -680,14 +700,15 @@ function refreshImgList(){
   document.getElementById('btn-img2pdf').disabled = imgFiles.length === 0;
 }
 setupDropzone('dz-img', 'input-img', files => {
-  imgFiles = imgFiles.concat(files.filter(f => f.type.startsWith('image/')));
+  const next=imgFiles.concat(files);if(next.length>200||next.reduce((n,f)=>n+f.size,0)>100*1024*1024)throw Error('合計最多 200 個檔案、100 MB，請分批處理');imgFiles=next;
   refreshImgList();
 });
 document.getElementById('btn-img2pdf').onclick = async () => {
   setStatus('status-img', '處理中...');
   try{
     const pdfDoc = await PDFDocument.create();
-    for(const file of imgFiles){
+    for(const [index,file] of imgFiles.entries()){
+      await AppTasks.step(index,imgFiles.length,'合併圖片');
       const bytes = await file.arrayBuffer();
       let img;
       if(file.type === 'image/png') img = await pdfDoc.embedPng(bytes);
@@ -695,10 +716,10 @@ document.getElementById('btn-img2pdf').onclick = async () => {
       const page = pdfDoc.addPage([img.width, img.height]);
       page.drawImage(img, {x:0, y:0, width:img.width, height:img.height});
     }
-    const bytes = await pdfDoc.save();
+    AppTasks.phase('產生 PDF');const bytes = await pdfDoc.save();
     download(new Blob([bytes], {type:'application/pdf'}), 'merged.pdf');
     setStatus('status-img', `完成 · 共 ${imgFiles.length} 頁`);
-  }catch(e){ setStatus('status-img', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-img', e, true); }
 };
 
 /* ---------- 02: PDF -> IMG ---------- */
@@ -710,37 +731,27 @@ setupDropzone('dz-p2i', 'input-p2i', files => {
     document.getElementById('btn-p2i').disabled = false;
   }
 });
-document.getElementById('btn-p2i').onclick = async () => {
-  setStatus('status-p2i', '轉換中...');
+document.getElementById('btn-p2i').onclick=async()=>{
+  let task=null;setStatus('status-p2i','讀取 PDF…');
   try{
-    const scale = parseFloat(document.getElementById('scale-p2i').value) || 2;
-    const format = document.getElementById('format-p2i').value;
-    const mime = format === 'jpg' ? 'image/jpeg' : 'image/png';
-    const ext = format === 'jpg' ? 'jpg' : 'png';
-    const quality = format === 'jpg' ? 0.92 : undefined;
-    const bytes = await p2iFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
-    const zip = new JSZip();
-    for(let i=1; i<=pdf.numPages; i++){
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({scale});
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      if(format === 'jpg'){
-        // JPG 不支援透明,先鋪白底避免變黑
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      await page.render({canvasContext: ctx, viewport}).promise;
-      const blob = await new Promise(res => canvas.toBlob(res, mime, quality));
-      zip.file(`page-${String(i).padStart(3,'0')}.${ext}`, blob);
-      setStatus('status-p2i', `已處理 ${i} / ${pdf.numPages} 頁`);
+    const wanted=Math.max(.5,Math.min(8,Number(document.getElementById('scale-p2i').value)||2)),format=document.getElementById('format-p2i').value;
+    task=pdfjsLib.getDocument({data:new Uint8Array(await p2iFile.arrayBuffer()),isOffscreenCanvasSupported:false});const unwatch=AppTasks.watch(task);
+    const pdf=await task.promise,numbers=AppCore.pages(document.getElementById('p2i-pages').value,pdf.numPages),zip=new JSZip();let limited=false,bytes=0;
+    for(let index=0;index<numbers.length;index++){
+      await AppTasks.step(index,numbers.length,'轉換圖片');const number=numbers[index],page=await pdf.getPage(number),canvas=document.createElement('canvas');
+      try{
+        const base=page.getViewport({scale:1}),size=AppCore.dimensions(base.width,base.height,wanted);limited ||= size.limited;
+        const viewport=page.getViewport({scale:size.scale});canvas.width=size.width;canvas.height=size.height;
+        const render=page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport,background:'#fff'}),stop=AppTasks.watch(render);try{await render.promise;}finally{stop?.();}
+        const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('圖片產生失敗，請降低解析度')),format==='jpg'?'image/jpeg':'image/png',.92));
+        bytes+=blob.size;if(bytes>96*1024*1024)throw Error('圖片總量超過 96 MB，請減少指定頁數或降低解析度');
+        AppTasks.check();zip.file(`page-${String(number).padStart(3,'0')}.${format==='jpg'?'jpg':'png'}`,blob);
+        setStatus('status-p2i',`已處理 ${index+1} / ${numbers.length} 頁`);
+      }finally{canvas.width=canvas.height=0;page.cleanup();}
     }
-    const zipBlob = await zip.generateAsync({type:'blob'});
-    download(zipBlob, 'pages.zip');
-    setStatus('status-p2i', `完成 · 共 ${pdf.numPages} 頁(${format.toUpperCase()})`);
-  }catch(e){ setStatus('status-p2i', '錯誤: ' + e.message, true); }
+    AppTasks.phase('打包圖片');download(await zip.generateAsync({type:'blob'}),'pages.zip');
+    setStatus('status-p2i',`完成 · 共 ${numbers.length} 頁${limited?'；過大頁面已限制為最多 800 萬像素／4096px':''}`);unwatch?.();
+  }catch(e){setStatus('status-p2i',e,true);}finally{if(task)await task.destroy().catch(()=>{});}
 };
 
 /* ---------- 03: MERGE ---------- */
@@ -750,14 +761,15 @@ function refreshMergeList(){
   document.getElementById('btn-merge').disabled = mergeFiles.length < 2;
 }
 setupDropzone('dz-merge', 'input-merge', files => {
-  mergeFiles = mergeFiles.concat(files.filter(f => f.type === 'application/pdf'));
+  const next=mergeFiles.concat(files);if(next.length>200||next.reduce((n,f)=>n+f.size,0)>100*1024*1024)throw Error('合計最多 200 個檔案、100 MB，請分批處理');mergeFiles=next;
   refreshMergeList();
 });
 document.getElementById('btn-merge').onclick = async () => {
   setStatus('status-merge', '合併中...');
   try{
     const merged = await PDFDocument.create();
-    for(const file of mergeFiles){
+    for(const [index,file] of mergeFiles.entries()){
+      await AppTasks.step(index,mergeFiles.length,'合併 PDF');
       const bytes = await file.arrayBuffer();
       const src = await PDFDocument.load(bytes);
       const pages = await merged.copyPages(src, src.getPageIndices());
@@ -766,7 +778,7 @@ document.getElementById('btn-merge').onclick = async () => {
     const bytes = await merged.save();
     download(new Blob([bytes], {type:'application/pdf'}), 'combined.pdf');
     setStatus('status-merge', `完成 · 合併 ${mergeFiles.length} 個檔案`);
-  }catch(e){ setStatus('status-merge', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-merge', e, true); }
 };
 
 /* ---------- 04: SPLIT ---------- */
@@ -778,10 +790,10 @@ setupDropzone('dz-split', 'input-split', async files => {
     splitFile = pmFile = files[0];
     pmTotalPages=0;
     document.getElementById('pm-order').value='';
-    document.getElementById('btn-pm').disabled=false;
+    document.getElementById('btn-pm').disabled=true;
     document.getElementById('btn-pm-preview').disabled=false;
     document.getElementById('split-password').value='';
-    renderList('list-split', [splitFile], () => { if(splitImageBusy)return; splitFile=pmFile=null; pmTotalPages=0; document.getElementById('thumbs-pm').innerHTML=''; document.getElementById('btn-pm').disabled=true; document.getElementById('btn-pm-preview').disabled=true; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; document.getElementById('btn-split-image').disabled=true; document.getElementById('split-password').value=''; });
+    renderList('list-split', [splitFile], () => { if(splitImageBusy)return; splitFile=pmFile=null;pmPreview?.dispose();pmPreview=null; pmTotalPages=0; document.getElementById('thumbs-pm').innerHTML=''; document.getElementById('btn-pm').disabled=true; document.getElementById('btn-pm-preview').disabled=true; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; document.getElementById('btn-split-image').disabled=true; document.getElementById('split-password').value=''; });
     document.getElementById('btn-split-range').disabled = false;
     document.getElementById('btn-split-all').disabled = false;
     document.getElementById('btn-split-image').disabled = false;
@@ -794,19 +806,18 @@ document.getElementById('btn-split-range').onclick = async () => {
     const bytes = await splitFile.arrayBuffer();
     const src = await PDFDocument.load(bytes);
     const total = src.getPageCount();
-    let start = parseInt(document.getElementById('split-start').value) || 1;
-    let end = parseInt(document.getElementById('split-end').value) || total;
-    start = Math.max(1, Math.min(start, total));
-    end = Math.max(start, Math.min(end, total));
+    const start=Number(document.getElementById('split-start').value||1),end=Number(document.getElementById('split-end').value||total);
+    AppCore.pages(`${start}-${end}`,total);
     const out = await PDFDocument.create();
     const indices = [];
     for(let i=start; i<=end; i++) indices.push(i-1);
     const pages = await out.copyPages(src, indices);
     pages.forEach(p => out.addPage(p));
+    AppTasks.phase('產生 PDF');
     const outBytes = await out.save();
     download(new Blob([outBytes], {type:'application/pdf'}), `pages-${start}-${end}.pdf`);
     setStatus('status-split', `完成 · 擷取第 ${start} 至 ${end} 頁`);
-  }catch(e){ setStatus('status-split', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-split', e, true); }
 };
 document.getElementById('btn-split-all').onclick = async () => {
   setStatus('status-split', '拆分中...');
@@ -816,16 +827,18 @@ document.getElementById('btn-split-all').onclick = async () => {
     const total = src.getPageCount();
     const zip = new JSZip();
     for(let i=0; i<total; i++){
+      await AppTasks.step(i,total,'拆分頁面');
       const out = await PDFDocument.create();
       const [page] = await out.copyPages(src, [i]);
       out.addPage(page);
-      const outBytes = await out.save();
+      AppTasks.phase('產生 PDF');
+    const outBytes = await out.save();
       zip.file(`page-${String(i+1).padStart(3,'0')}.pdf`, outBytes);
     }
     const zipBlob = await zip.generateAsync({type:'blob'});
     download(zipBlob, 'split-pages.zip');
     setStatus('status-split', `完成 · 共拆出 ${total} 個檔案`);
-  }catch(e){ setStatus('status-split', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-split', e, true); }
 };
 
 document.getElementById('btn-split-image').onclick = async () => {
@@ -842,7 +855,7 @@ document.getElementById('btn-split-image').onclick = async () => {
     const number=Number(document.getElementById('split-start').value||1);
     if(!Number.isInteger(number)||number<1)throw new Error('起始頁必須是大於 0 的整數');
     task=pdfjsLib.getDocument({data:new Uint8Array(await splitFile.arrayBuffer()),password:password.value});
-    const pdf=await task.promise;
+    AppTasks.watch(task);const pdf=await task.promise;
     if(number>pdf.numPages)throw new Error(`頁碼 ${number} 超出範圍（共 ${pdf.numPages} 頁）`);
     page=await pdf.getPage(number);
     const base=page.getViewport({scale:1});
@@ -850,7 +863,7 @@ document.getElementById('btn-split-image').onclick = async () => {
     const viewport=page.getViewport({scale});
     canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
     phase=`渲染第 ${number} 頁`;update();
-    await page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport,background:'#ffffff'}).promise;
+    const render=page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport,background:'#ffffff'});AppTasks.watch(render);await render.promise;
     const png=await canvasToPngBytes(canvas);
     const output=await PDFDocument.create();
     const image=await output.embedPng(png);
@@ -874,8 +887,7 @@ document.getElementById('btn-split-image').onclick = async () => {
 function canvasToPngBytes(canvas){
   return new Promise((resolve, reject) => {
     canvas.toBlob(async blob => {
-      if(!blob) return reject(new Error('canvas 轉圖片失敗'));
-      resolve(new Uint8Array(await blob.arrayBuffer()));
+      try{if(!blob)throw new Error('canvas 轉圖片失敗，請降低解析度後重試');resolve(new Uint8Array(await blob.arrayBuffer()));}catch(error){reject(error);}finally{canvas.width=canvas.height=0;}
     }, 'image/png');
   });
 }
@@ -957,7 +969,7 @@ function renderColorSwatches(containerId, inputId, presets, storageKey){
 
 /* 產生一張與整頁同尺寸的透明浮水印圖層(文字置中、可旋轉、可調透明度) */
 async function makeWatermarkPng(pageWidthPt, pageHeightPt, text, fontSizePt, opacity, angleDeg){
-  const scale = 2;
+  const scale = AppCore.dimensions(pageWidthPt,pageHeightPt,2).scale;
   const w = Math.max(1, Math.round(pageWidthPt * scale));
   const h = Math.max(1, Math.round(pageHeightPt * scale));
   const canvas = document.createElement('canvas');
@@ -976,12 +988,13 @@ async function makeWatermarkPng(pageWidthPt, pageHeightPt, text, fontSizePt, opa
 }
 
 /* 產生一小張只包含單行文字的 PNG(用於頁碼),回傳點數(pt)單位的寬高供 drawImage 使用 */
+function assertTextRaster(width,height){if(AppCore.dimensions(width,height,1).limited)throw Error('文字圖片尺寸過大，請縮短標註／頁碼文字、縮小字級或移離頁面邊緣後重試');}
 async function makeTextLabelPng(text, fontSizePt, color){
   const scale = 3;
   const measure = document.createElement('canvas').getContext('2d');
   measure.font = `${fontSizePt*scale}px ${CJK_FONT_STACK}`;
   const textWpx = Math.ceil(measure.measureText(text).width) + 6*scale;
-  const textHpx = Math.ceil(fontSizePt*scale*1.5);
+  const textHpx = Math.ceil(fontSizePt*scale*1.5);assertTextRaster(textWpx,textHpx);
   const canvas = document.createElement('canvas');
   canvas.width = textWpx; canvas.height = textHpx;
   const ctx = canvas.getContext('2d');
@@ -995,22 +1008,7 @@ async function makeTextLabelPng(text, fontSizePt, color){
 }
 
 /* ---------- 共用: 解析頁碼字串 "1,3,5-7" -> 依輸入順序展開的 1-based 頁碼陣列 ---------- */
-function parsePageSpec(spec, total){
-  const tokens = spec.split(',').map(s => s.trim()).filter(Boolean);
-  const result = [];
-  for(const tok of tokens){
-    if(tok.includes('-')){
-      const [a, b] = tok.split('-').map(n => parseInt(n.trim()));
-      if(isNaN(a) || isNaN(b)) continue;
-      const lo = Math.min(a,b), hi = Math.max(a,b);
-      for(let i=lo; i<=hi; i++) if(i>=1 && i<=total) result.push(i);
-    } else {
-      const n = parseInt(tok);
-      if(!isNaN(n) && n>=1 && n<=total) result.push(n);
-    }
-  }
-  return result;
-}
+function parsePageSpec(spec,total){return AppCore.pages(spec,total,true);}
 
 /* ---------- 05: 浮水印 ---------- */
 let wmFile = null;
@@ -1033,7 +1031,8 @@ document.getElementById('btn-wm').onclick = async () => {
     const pdfDoc = await PDFDocument.load(bytes);
     const pages = pdfDoc.getPages();
     const pngCache = new Map();
-    for(const page of pages){
+    for(const [index,page] of pages.entries()){
+      await AppTasks.step(index,pages.length,'加浮水印');
       const { width, height } = page.getSize();
       const key = `${width}x${height}`;
       let pngBytes = pngCache.get(key);
@@ -1044,10 +1043,11 @@ document.getElementById('btn-wm').onclick = async () => {
       const img = await pdfDoc.embedPng(pngBytes);
       page.drawImage(img, { x:0, y:0, width, height });
     }
+    AppTasks.phase('產生 PDF');
     const outBytes = await pdfDoc.save();
     download(new Blob([outBytes], {type:'application/pdf'}), 'watermarked.pdf');
     setStatus('status-wm', `完成 · 共 ${pages.length} 頁加上浮水印`);
-  }catch(e){ setStatus('status-wm', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-wm', e, true); }
 };
 
 /* ---------- 06: 加頁碼 ---------- */
@@ -1071,6 +1071,7 @@ document.getElementById('btn-pn').onclick = async () => {
     const pages = pdfDoc.getPages();
     const total = pages.length;
     for(let i=0; i<pages.length; i++){
+      await AppTasks.step(i,pages.length,'加頁碼');
       const page = pages[i];
       const { width } = page.getSize();
       const label = format.replace('{n}', start + i).replace('{total}', total);
@@ -1078,10 +1079,11 @@ document.getElementById('btn-pn').onclick = async () => {
       const img = await pdfDoc.embedPng(labelPng);
       page.drawImage(img, { x: width/2 - widthPt/2, y: 14, width: widthPt, height: heightPt });
     }
+    AppTasks.phase('產生 PDF');
     const outBytes = await pdfDoc.save();
     download(new Blob([outBytes], {type:'application/pdf'}), 'numbered.pdf');
     setStatus('status-pn', `完成 · 共 ${total} 頁加上頁碼`);
-  }catch(e){ setStatus('status-pn', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-pn', e, true); }
 };
 
 /* ---------- 07: 旋轉頁面 ---------- */
@@ -1103,64 +1105,39 @@ document.getElementById('btn-rot').onclick = async () => {
     const pdfDoc = await PDFDocument.load(bytes);
     const pages = pdfDoc.getPages();
     const total = pages.length;
-    const targetPages = spec ? parsePageSpec(spec, total) : Array.from({length: total}, (_, i) => i+1);
+    const targetPages = spec ? AppCore.pages(spec, total) : Array.from({length: total}, (_, i) => i+1);
 
     if(targetPages.length === 0){
       setStatus('status-rot', '頁碼範圍無效', true);
       return;
     }
-    for(const pageNum of targetPages){
+    for(const [index,pageNum] of targetPages.entries()){
+      await AppTasks.step(index,targetPages.length,'旋轉頁面');
       const page = pages[pageNum - 1];
       const current = page.getRotation().angle;
       page.setRotation(degrees((current + angle) % 360));
     }
+    AppTasks.phase('產生 PDF');
     const outBytes = await pdfDoc.save();
     download(new Blob([outBytes], {type:'application/pdf'}), 'rotated.pdf');
     setStatus('status-rot', `完成 · 已旋轉 ${targetPages.length} 頁`);
-  }catch(e){ setStatus('status-rot', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-rot', e, true); }
 };
 
 /* ---------- 08: 頁面管理(縮圖預覽 + 自訂順序) ---------- */
 let pmFile = null;
 let pmTotalPages = 0;
 document.getElementById('btn-pm-preview').onclick = renderPmThumbs;
+let pmPreview=null;
 async function renderPmThumbs(){
-  const thumbsEl = document.getElementById('thumbs-pm');
-  thumbsEl.innerHTML = '<span style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">縮圖產生中...</span>';
-  let loadingTask=null;
-  const file=pmFile;
-  try{
-    const bytes = await file.arrayBuffer();
-    loadingTask=pdfjsLib.getDocument({data: bytes,password:document.getElementById('split-password').value});
-    const pdf = await loadingTask.promise;
-    pmTotalPages = pdf.numPages;
-    thumbsEl.innerHTML = '';
-    for(let i=1; i<=pdf.numPages; i++){
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({scale: 0.25});
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      canvas.style.border = '1px solid var(--line-dim)';
-      canvas.style.borderRadius = '2px';
-      const ctx = canvas.getContext('2d');
-      await page.render({canvasContext: ctx, viewport}).promise;
-      const wrap = document.createElement('div');
-      wrap.style.textAlign = 'center';
-      const label = document.createElement('div');
-      label.textContent = i;
-      label.style.fontFamily = 'var(--mono)';
-      label.style.fontSize = '11px';
-      label.style.color = 'var(--ink-soft)';
-      label.style.marginTop = '4px';
-      wrap.appendChild(canvas);
-      wrap.appendChild(label);
-      if(pmFile!==file)return;
-      thumbsEl.appendChild(wrap);
-      page.cleanup();
-    }
-  }catch(e){ thumbsEl.textContent=e.name==='PasswordException'?'請在下方輸入正確的 PDF 開啟密碼，再按「重新預覽」。':'縮圖失敗: '+e.message; }
-  finally{if(loadingTask)await loadingTask.destroy().catch(()=>{});}
+  pmPreview?.dispose();const file=pmFile;if(!file)return;const container=document.getElementById('thumbs-pm');container.textContent='正在讀取頁數…';
+  const viewer=new LazyPDF(container,{scale:.25,maxCanvases:48,onCount:count=>{if(pmPreview===viewer){pmTotalPages=count;if(!AppTasks.busy)document.getElementById('btn-pm').disabled=false;}},makeShell:(index,view)=>{
+    const wrap=document.createElement('div'),frame=document.createElement('div'),canvas=document.createElement('canvas'),label=document.createElement('div');
+    wrap.style.cssText=`text-align:center;width:${view.width}px;max-width:100%;`;frame.style.width='100%';canvas.style.border='1px solid #dce2e9';label.textContent=index+1;label.style.cssText='font-size:11px;color:#687b91;margin:4px 0';frame.append(canvas);wrap.append(frame,label);return {wrap,frame,canvas};
+  }});pmPreview=viewer;
+  try{await viewer.load(file,document.getElementById('split-password').value);}catch(e){if(pmPreview===viewer){container.textContent=AppCore.errorMessage(e);viewer.dispose();}}
 }
+
 document.getElementById('btn-pm').onclick = async () => {
   setStatus('status-pm', '處理中...');
   try{
@@ -1175,10 +1152,11 @@ document.getElementById('btn-pm').onclick = async () => {
     const indices = order.map(n => n - 1);
     const pages = await out.copyPages(src, indices);
     pages.forEach(p => out.addPage(p));
+    AppTasks.phase('產生 PDF');
     const outBytes = await out.save();
     download(new Blob([outBytes], {type:'application/pdf'}), 'reordered.pdf');
     setStatus('status-pm', `完成 · 輸出 ${order.length} 頁`);
-  }catch(e){ setStatus('status-pm', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-pm', e, true); }
 };
 
 /* ---------- 共用: 後端 API 設定與呼叫 ---------- */
@@ -1219,6 +1197,7 @@ async function callBackendConvert(path, file, defaultFilename, queryParams='', o
   formData.append('file', file);
   const xhr = await new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
+    const signal=typeof window!=='undefined'?window.AppTasks?.signal:null;signal?.addEventListener('abort',()=>request.abort(),{once:true});if(signal?.aborted){reject(AppCore.abortError());return;}
     request.upload.onprogress = event => onProgress('upload', event.lengthComputable && event.total > 0 ? Math.min(100, Math.round(event.loaded/event.total*100)) : null);
     request.upload.onload = () => onProgress('convert', null);
     request.onprogress = event => onProgress('download', event.lengthComputable && event.total > 0 ? Math.min(100, Math.round(event.loaded/event.total*100)) : null);
@@ -1283,7 +1262,7 @@ async function runBackendConvert(buttonId, statusId, action){
     progress.value = 100;
     progress.setAttribute('aria-label', '完成 100%');
     setStatus(statusId, `完成 100% · 共 ${total} 秒${result.seconds ? `（伺服器轉換 ${Number(result.seconds).toFixed(1)} 秒）` : ''}${result.detail || ''}`);
-  }catch(e){ progress.hidden=true; setStatus(statusId, '錯誤: ' + e.message, true); }
+  }catch(e){ progress.hidden=true; setStatus(statusId, e, true); }
   finally{
     clearInterval(timer);
     delete button.dataset.busy;
@@ -1300,12 +1279,13 @@ function updateWordOptions(){
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
   document.getElementById('word-preserve-field').hidden=mode==='layout';
   document.getElementById('ocr-output-field').hidden=document.getElementById('word-preserve').checked;
-  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；不含 OCR，免費服務可能需等待喚醒。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；指定頁面會先本機擷取副本再上傳。不含 OCR，免費服務可能需等待喚醒。取消會停止本機等待與下載，伺服器已收到的工作仍可能執行到自動清理。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
   document.getElementById('word-fast').checked=!document.getElementById('word-preserve').checked;
   document.getElementById('word-look').checked=document.getElementById('word-preserve').checked;
   document.getElementById('word-fast').disabled=document.getElementById('word-look').disabled=wordBusy;
   wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
 }
+document.getElementById('docx-pages').onchange=()=>{if(!wordBusy&&docxFile)chooseWordFile(docxFile);};
 document.getElementById('word-preserve').onchange=updateWordOptions;
 for(const id of ['word-fast','word-look'])document.getElementById(id).onchange=()=>{if(wordBusy)return;document.getElementById('word-preserve').checked=id==='word-look';if(id==='word-fast')document.getElementById('ocr-output-mode').value='text';OCRWord.clearReview?.();updateWordOptions();};
 wordMode.onchange=()=>{OCRWord.clearReview?.();updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
@@ -1317,7 +1297,7 @@ function chooseWordFile(file){
   renderList('list-docx',[file],()=>{if(wordBusy)return;OCRWord.clearReview?.();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
   setStatus('status-docx','正在檢查文字層…');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();
   const select=mode=>{if(wordBusy)return;wordMode.value=mode;updateWordOptions();wordButton.focus();};
-  wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr')).then(result=>{
+  wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr'),document.getElementById('docx-pages').value).then(result=>{
     if(selection!==wordSelection)return;
     wordChoice=result||null;updateWordOptions();
     if(!wordBusy)setStatus('status-docx',result?'已準備好 · '+(effectiveWordMode()==='ocr'?'將使用 OCR':effectiveWordMode()==='layout'?'已選擇後端排版，檔案會上傳':'將直接擷取文字'): '自動判斷未完成，請依上方提示處理，或手動選擇處理方式',!result);
@@ -1334,8 +1314,14 @@ wordButton.onclick=async()=>{
   for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}
   try{
     if(mode==='ocr')await OCRWord.runFile(selected,{preferNative:wordMode.value==='auto'});
-    else if(mode==='local')await LocalConvert.run('docx',selected);
-    else await runBackendConvert('btn-docx','status-docx',progress=>callBackendConvert('/convert/pdf-to-docx',selected,'converted.docx','',progress));
+    else if(mode==='local')await LocalConvert.run('docx',selected,document.getElementById('docx-pages').value);
+    else{
+      let upload=selected;const spec=document.getElementById('docx-pages').value.trim();
+      if(spec){const source=await PDFDocument.load(await selected.arrayBuffer()),numbers=AppCore.pages(spec,source.getPageCount()),out=await PDFDocument.create();
+        for(const [index,n] of numbers.entries()){await AppTasks.step(index,numbers.length,'擷取待上傳頁面');const [page]=await out.copyPages(source,[n-1]);out.addPage(page);}
+        upload=new File([await out.save()],selected.name,{type:'application/pdf'});AppTasks.check();}
+      await runBackendConvert('btn-docx','status-docx',progress=>callBackendConvert('/convert/pdf-to-docx',upload,'converted.docx','',progress));
+    }
   }finally{wordBusy=false;wordMode.disabled=false;document.getElementById('word-preserve').disabled=false;document.getElementById('input-docx').disabled=false;updateWordOptions();}
 };
 
@@ -1349,7 +1335,7 @@ setupDropzone('dz-xlsx', 'input-xlsx', files => {
   }
 });
 document.getElementById('btn-xlsx').onclick = async () => {
-  await LocalConvert.run('xlsx',xlsxFile);
+  await LocalConvert.run('xlsx',xlsxFile,document.getElementById('xlsx-pages').value);
 };
 
 /* ---------- 11: PDF -> SVG ---------- */
@@ -1406,7 +1392,7 @@ toggleUpscaleSharpenField();
 
 const MAX_UPSCALE_DIMENSION = 6000; // 避免畫布過大導致瀏覽器記憶體或效能問題
 
-function sharpenCanvas(ctx, width, height, amount){
+async function sharpenCanvas(ctx, width, height, amount){
   if(amount <= 0) return;
   const src = ctx.getImageData(0, 0, width, height);
   const srcData = src.data;
@@ -1416,6 +1402,7 @@ function sharpenCanvas(ctx, width, height, amount){
   const center = 1 + 4 * k;
 
   for(let y = 0; y < height; y++){
+    if(y%64===0)await AppTasks.step(y,height,'銳化圖片');
     for(let x = 0; x < width; x++){
       const idx = (y * width + x) * 4;
       if(x === 0 || y === 0 || x === width-1 || y === height-1){
@@ -1442,13 +1429,14 @@ function sharpenCanvas(ctx, width, height, amount){
 }
 
 document.getElementById('btn-upscale').onclick = async () => {
+  let bitmap=null,canvas=null;
   setStatus('status-upscale', '讀取圖片中...');
   try{
     const factor = parseInt(document.getElementById('upscale-factor').value) || 2;
     const mode = document.getElementById('upscale-mode').value;
     const sharpenAmount = mode === 'smooth' ? (parseFloat(document.getElementById('upscale-sharpen').value) || 0) : 0;
 
-    const bitmap = await createImageBitmap(upscaleFile);
+    bitmap = await createImageBitmap(upscaleFile);
     let targetW = bitmap.width * factor;
     let targetH = bitmap.height * factor;
     if(targetW > MAX_UPSCALE_DIMENSION || targetH > MAX_UPSCALE_DIMENSION){
@@ -1458,7 +1446,8 @@ document.getElementById('btn-upscale').onclick = async () => {
       setStatus('status-upscale', `目標尺寸過大,已自動限制在 ${MAX_UPSCALE_DIMENSION}px 以內...`);
     }
 
-    const canvas = document.createElement('canvas');
+    const safe=AppCore.dimensions(bitmap.width,bitmap.height,factor);targetW=safe.width;targetH=safe.height;
+    canvas = document.createElement('canvas');
     canvas.width = targetW;
     canvas.height = targetH;
     const ctx = canvas.getContext('2d');
@@ -1475,13 +1464,13 @@ document.getElementById('btn-upscale').onclick = async () => {
       setStatus('status-upscale', '套用銳化中,大圖可能需要幾秒鐘...');
       // 讓上面的狀態文字先渲染出來,避免畫面卡住看起來像沒反應
       await new Promise(res => setTimeout(res, 30));
-      sharpenCanvas(ctx, targetW, targetH, sharpenAmount);
+      await sharpenCanvas(ctx, targetW, targetH, sharpenAmount);
     }
 
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     download(blob, 'upscaled.png');
     setStatus('status-upscale', `完成 · ${bitmap.width}×${bitmap.height} → ${targetW}×${targetH}`);
-  }catch(e){ setStatus('status-upscale', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-upscale', e, true); }finally{bitmap?.close();if(canvas)canvas.width=canvas.height=0;}
 };
 
 /* ---------- 14: PDF 瀏覽與備註 ---------- */
@@ -1489,16 +1478,31 @@ let annotateFile = null;
 let annotateBytesCache = null;
 let annotations = []; // {page, type, xPct,yPct,wPct,hPct, text, el}
 let currentAnnotateTool = 'none';
+let annotatePreview=null,annotationEvents=new AbortController(),annotationRestoring=false;
+const annotationHistory=new AppCore.History();
+const annotationData=()=>annotations.map(({el,...data})=>data);
+function annotationListen(target,type,listener){target.addEventListener(type,listener,{signal:annotationEvents.signal});}
+function annotationDialog(title,initial='',confirmOnly=false){
+  const dialog=document.getElementById('annotation-editor'),text=document.getElementById('annotation-editor-text');if(dialog.open)return Promise.resolve(null);
+  document.getElementById('annotation-editor-title').textContent=title;text.value=initial;text.hidden=confirmOnly;dialog.returnValue='';
+  return new Promise(resolve=>{dialog.addEventListener('close',()=>resolve(dialog.returnValue==='save'?(confirmOnly?true:text.value):null),{once:true});dialog.showModal();if(!confirmOnly)text.focus();});
+}
+async function annotationWarning(){return !annotationHistory.dirty||await annotationDialog('目前標註尚未下載，繼續會清除這份文件的標註。是否繼續？','',true);}
+function updateAnnotationHistory(){document.getElementById('btn-annotate-undo').disabled=annotationHistory.index===0;document.getElementById('btn-annotate-redo').disabled=annotationHistory.index===annotationHistory.states.length-1;}
+window.addEventListener('beforeunload',event=>{if(annotationHistory.dirty){event.preventDefault();event.returnValue='';}});
+
 
 setupDropzone('dz-annotate', 'input-annotate', async files => {
   if(files[0] && files[0].type === 'application/pdf'){
-    annotateFile = files[0];
+    if(!(await annotationWarning()))return;resetAnnotateViewer(true);annotateFile = files[0];
     renderList('list-annotate', [annotateFile], () => resetAnnotateViewer());
     await loadAnnotateViewer();
   }
 });
 
-function resetAnnotateViewer(){
+async function resetAnnotateViewer(force=false){
+  if(!force&&!(await annotationWarning()))return;
+  annotatePreview?.dispose();annotatePreview=null;annotationEvents.abort();annotationEvents=new AbortController();annotationHistory.reset([]);updateAnnotationHistory();
   annotateFile = null;
   annotateBytesCache = null;
   annotations = [];
@@ -1512,44 +1516,42 @@ function resetAnnotateViewer(){
 }
 
 async function loadAnnotateViewer(){
-  setStatus('status-annotate', '載入中...');
+  const file=annotateFile;setStatus('status-annotate','讀取頁數，預覽會隨捲動載入…');
   try{
-    annotateBytesCache = await annotateFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: annotateBytesCache.slice(0)}).promise;
-    const pagesEl = document.getElementById('annotate-pages');
-    pagesEl.innerHTML = '';
-    for(let i=1; i<=pdf.numPages; i++){
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({scale: 1.3});
-      const wrap = document.createElement('div');
-      wrap.style.position = 'relative';
-      wrap.style.margin = '0 auto 16px';
-      wrap.style.width = viewport.width + 'px';
-
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      canvas.style.display = 'block';
-      canvas.style.boxShadow = '0 1px 4px rgba(0,0,0,0.25)';
-      const ctx = canvas.getContext('2d');
-      await page.render({canvasContext: ctx, viewport}).promise;
-
-      const overlay = document.createElement('div');
-      overlay.className = 'annotate-overlay';
-      overlay.style.position = 'absolute';
-      overlay.style.inset = '0';
-      overlay.style.cursor = 'crosshair';
-
-      wrap.appendChild(canvas);
-      wrap.appendChild(overlay);
-      pagesEl.appendChild(wrap);
-
-      wireAnnotateOverlay(overlay, i - 1);
-    }
-    pagesEl.style.display = 'block';
-    document.getElementById('annotate-toolbar').style.display = 'flex';
-    setStatus('status-annotate', `已載入 ${pdf.numPages} 頁 · 選上方工具後在頁面上操作(「瀏覽」模式不會誤觸標註)`);
-  }catch(e){ setStatus('status-annotate', '錯誤: ' + e.message, true); }
+    const bytes=await file.arrayBuffer();if(annotateFile!==file)return;annotateBytesCache=bytes;
+    const container=document.getElementById('annotate-pages');container.style.display='block';
+    const viewer=new LazyPDF(container,{scale:1.3,maxCanvases:6,makeShell:(index,view)=>{
+      const wrap=document.createElement('div'),canvas=document.createElement('canvas'),overlay=document.createElement('div');
+      wrap.style.cssText=`position:relative;margin:0 auto 16px;width:${view.width}px;max-width:100%;`;canvas.style.boxShadow='0 1px 4px rgba(0,0,0,.2)';
+      overlay.className='annotate-overlay';overlay.dataset.pageIndex=index;overlay.dataset.pageWidth=view.width/1.3;overlay.style.cssText='position:absolute;inset:0;cursor:crosshair;';overlay.tabIndex=0;
+      wrap.append(canvas,overlay);wireAnnotateOverlay(overlay,index);return {wrap,frame:wrap,canvas,overlay};
+    },onCount:count=>setStatus('status-annotate',`共 ${count} 頁 · 預覽隨捲動載入，離開畫面的圖片會釋放；標註保留在本頁記憶體`),onRender:item=>{
+      for(const ann of annotations.filter(a=>a.page===item.number-1))if(ann.type==='text'&&ann.el)ann.el.style.fontSize=(ann.fontSizePt*item.overlay.getBoundingClientRect().width/Number(item.overlay.dataset.pageWidth))+'px';
+    }});annotatePreview=viewer;await viewer.load(file);if(annotatePreview!==viewer)return;
+    document.getElementById('annotate-toolbar').style.display='flex';renderAnnotateList();
+  }catch(e){if(annotateFile===file)setStatus('status-annotate',e,true);}
 }
+function restoreAnnotations(state){
+  annotationRestoring=true;
+  try{
+    for(const ann of annotations)ann.el?.remove();annotations=state;
+    for(const ann of annotations){
+      const overlay=document.querySelector(`.annotate-overlay[data-page-index="${ann.page}"]`);if(!overlay)continue;
+      const el=document.createElement('div');el.style.cssText=`position:absolute;left:${ann.xPct}%;top:${ann.yPct}%;`;
+      if(ann.type==='highlight'){el.style.width=ann.wPct+'%';el.style.height=ann.hPct+'%';el.style.background=hexToRgba(ann.colorHex||'#ffe000',.35);}
+      else if(ann.type==='note'){el.style.cssText+='transform:translate(-8px,-16px);font-size:16px;line-height:1;cursor:move;';el.title=ann.text;el.textContent='📌';}
+      else{el.style.cssText+=`font-size:${ann.fontSizePt*overlay.getBoundingClientRect().width/Number(overlay.dataset.pageWidth)}px;line-height:1.3;color:${ann.colorHex};font-weight:${ann.bold?'bold':'normal'};font-style:${ann.italic?'italic':'normal'};text-decoration:${ann.underline?'underline':'none'};white-space:pre-wrap;max-width:${100-ann.xPct}%;cursor:move;`;el.style.fontFamily=ann.fontFamily;el.textContent=ann.text;}
+      overlay.append(el);ann.el=el;if(ann.type!=='highlight')makeAnnotationDraggable(el,overlay,ann);
+    }
+    renderAnnotateList();
+  }finally{annotationRestoring=false;updateAnnotationHistory();}
+}
+document.getElementById('btn-annotate-undo').onclick=()=>{if(!AppTasks.busy)restoreAnnotations(annotationHistory.undo());};
+document.getElementById('btn-annotate-redo').onclick=()=>{if(!AppTasks.busy)restoreAnnotations(annotationHistory.redo());};
+document.addEventListener('keydown',event=>{
+  const target=event.target;if(!(event.ctrlKey||event.metaKey)||target.matches('input,textarea,select')||target.isContentEditable||!target.closest('.sheet')?.contains(document.getElementById('input-annotate')))return;
+  const key=event.key.toLowerCase();if(key==='z'||key==='y'){event.preventDefault();document.getElementById(key==='y'||event.shiftKey?'btn-annotate-redo':'btn-annotate-undo').click();}
+});
 
 /* 畫重點跟加文字共用同一個顏色控制項,依目前選的工具切換要顯示哪一套顏色/預設色盤,各自的顏色選擇分開記住 */
 let toolColors = { highlight: '#ffe000', text: '#1c3d5c' };
@@ -1585,8 +1587,8 @@ function wireAnnotateOverlay(overlay, pageIndex){
   let dragging = false;
   let startX = 0, startY = 0, tempRect = null;
 
-  overlay.addEventListener('mousedown', e => {
-    if(currentAnnotateTool !== 'highlight') return;
+  annotationListen(overlay,'mousedown', e => {
+    if(AppTasks.busy||currentAnnotateTool !== 'highlight') return;overlay.focus();
     const rect = overlay.getBoundingClientRect();
     startX = e.clientX - rect.left;
     startY = e.clientY - rect.top;
@@ -1602,7 +1604,7 @@ function wireAnnotateOverlay(overlay, pageIndex){
     overlay.appendChild(tempRect);
   });
 
-  overlay.addEventListener('mousemove', e => {
+  annotationListen(overlay,'mousemove', e => {
     if(!dragging || !tempRect) return;
     const rect = overlay.getBoundingClientRect();
     const curX = e.clientX - rect.left;
@@ -1615,7 +1617,7 @@ function wireAnnotateOverlay(overlay, pageIndex){
     tempRect.style.height = h + 'px';
   });
 
-  window.addEventListener('mouseup', () => {
+  annotationListen(window,'mouseup', () => {
     if(!dragging) return;
     dragging = false;
     if(!tempRect) return;
@@ -1640,12 +1642,13 @@ function wireAnnotateOverlay(overlay, pageIndex){
     tempRect = null;
   });
 
-  overlay.addEventListener('click', e => {
+  annotationListen(overlay,'click', async e => {
+    if(AppTasks.busy)return;overlay.focus();
     if(currentAnnotateTool === 'note'){
       const rect = overlay.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const text = window.prompt('輸入備註內容:');
+      const text = await annotationDialog('輸入備註內容：');
       if(!text) return;
       const pin = document.createElement('div');
       pin.style.position = 'absolute';
@@ -1674,7 +1677,7 @@ function wireAnnotateOverlay(overlay, pageIndex){
       const rect = overlay.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const text = window.prompt('輸入要放上頁面的文字:');
+      const text = await annotationDialog('輸入要放上頁面的文字：');
       if(!text) return;
 
       const fontSizePt = parseFloat(document.getElementById('text-opt-size').value) || 12;
@@ -1687,7 +1690,7 @@ function wireAnnotateOverlay(overlay, pageIndex){
       const underline = document.getElementById('text-opt-underline').checked;
 
       // 螢幕上的即時預覽:用同樣的字級比例(渲染scale=1.3)換算成畫面px
-      const screenFontSize = fontSizePt * 1.3;
+      const screenFontSize = fontSizePt * rect.width/Number(overlay.dataset.pageWidth);
       const el = document.createElement('div');
       el.style.position = 'absolute';
       el.style.left = x + 'px';
@@ -1719,61 +1722,16 @@ function wireAnnotateOverlay(overlay, pageIndex){
 }
 
 /* 讓備註釘/文字元素可以直接拖曳調整位置(畫重點方框不適用,拖曳=畫,容易衝突) */
-function makeAnnotationDraggable(el, overlay, ann){
-  let dragging = false;
-  let moved = false;
-  let startClientX = 0, startClientY = 0;
-
-  el.addEventListener('mousedown', e => {
-    e.stopPropagation();
-    e.preventDefault();
-    dragging = true;
-    moved = false;
-    startClientX = e.clientX;
-    startClientY = e.clientY;
+function makeAnnotationDraggable(el,overlay,ann){
+  let dragging=false,moved=false,startX=0,startY=0,originalX=0,originalY=0;
+  el.addEventListener('pointerdown',event=>{if(AppTasks.busy)return;event.stopPropagation();event.preventDefault();overlay.focus();dragging=true;moved=false;startX=event.clientX;startY=event.clientY;originalX=ann.xPct;originalY=ann.yPct;el.setPointerCapture(event.pointerId);});
+  el.addEventListener('pointermove',event=>{if(!dragging)return;const rect=overlay.getBoundingClientRect(),dx=event.clientX-startX,dy=event.clientY-startY;if(Math.abs(dx)>3||Math.abs(dy)>3)moved=true;
+    if(moved){ann.xPct=Math.max(0,Math.min(99,originalX+dx/rect.width*100));ann.yPct=Math.max(0,Math.min(99,originalY+dy/rect.height*100));el.style.left=ann.xPct+'%';el.style.top=ann.yPct+'%';if(ann.type==='text')el.style.maxWidth=(100-ann.xPct)+'%';}
   });
-
-  window.addEventListener('mousemove', e => {
-    if(!dragging) return;
-    const dx = e.clientX - startClientX;
-    const dy = e.clientY - startClientY;
-    if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-    if(moved){
-      el.style.left = (parseFloat(el.style.left) + dx) + 'px';
-      el.style.top = (parseFloat(el.style.top) + dy) + 'px';
-      startClientX = e.clientX;
-      startClientY = e.clientY;
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    if(!dragging) return;
-    dragging = false;
-    if(moved){
-      const rect = overlay.getBoundingClientRect();
-      ann.xPct = (parseFloat(el.style.left) / rect.width) * 100;
-      ann.yPct = (parseFloat(el.style.top) / rect.height) * 100;
-    } else {
-      showAnnotationPreview(el, ann);
-    }
-  });
-
-  el.addEventListener('click', e => { e.stopPropagation(); });
-
-  el.addEventListener('dblclick', e => {
-    e.stopPropagation();
-    const newText = window.prompt('編輯內容:', ann.text);
-    if(newText === null || newText === '') return;
-    ann.text = newText;
-    if(ann.type === 'note'){
-      el.title = newText;
-    } else if(ann.type === 'text'){
-      const badge = el.querySelector('.annotate-badge');
-      el.textContent = newText;
-      if(badge) el.appendChild(badge);
-    }
-    renderAnnotateList();
-  });
+  el.addEventListener('pointerup',event=>{if(!dragging)return;dragging=false;el.releasePointerCapture(event.pointerId);if(moved)renderAnnotateList();else showAnnotationPreview(el,ann);});
+  el.addEventListener('pointercancel',()=>{if(!dragging)return;dragging=false;ann.xPct=originalX;ann.yPct=originalY;el.style.left=originalX+'%';el.style.top=originalY+'%';});
+  el.addEventListener('click',event=>event.stopPropagation());
+  el.addEventListener('dblclick',async event=>{event.stopPropagation();if(AppTasks.busy)return;const text=await annotationDialog('編輯內容：',ann.text);if(text===null||text==='')return;ann.text=text;if(ann.type==='note')el.title=text;else el.textContent=text;renderAnnotateList();});
 }
 
 /* 點一下(非拖曳)顯示全文預覽泡泡,幾秒後自動消失,不用依賴滑鼠懸停 */
@@ -1823,6 +1781,7 @@ function renumberAnnotationBadges(){
 }
 
 function renderAnnotateList(){
+  if(!annotationRestoring)annotationHistory.commit(annotationData());updateAnnotationHistory();
   renumberAnnotationBadges();
   const listEl = document.getElementById('annotate-list');
   const hintEl = document.getElementById('annotate-list-hint');
@@ -1859,9 +1818,9 @@ function renderAnnotateList(){
   });
 }
 
-document.getElementById('btn-annotate-clear').onclick = () => {
+document.getElementById('btn-annotate-clear').onclick = async () => {
   if(annotations.length === 0) return;
-  if(!window.confirm(`確定要清除全部 ${annotations.length} 個標記嗎?`)) return;
+  if(!(await annotationDialog(`確定要清除全部 ${annotations.length} 個標記嗎？`,'',true)))return;
   annotations.forEach(ann => { if(ann.el) ann.el.remove(); });
   annotations = [];
   renderAnnotateList();
@@ -1900,7 +1859,7 @@ async function makeNoteBoxPng(text, fontSizePt, maxWidthPt){
   let maxLineWidth = 0;
   lines.forEach(l => { maxLineWidth = Math.max(maxLineWidth, measure.measureText(l).width); });
   const textWidthPx = Math.min(maxWidthPx, maxLineWidth) + 14*scale;
-  const textHeightPx = lineHeightPx * lines.length + 10*scale;
+  const textHeightPx = lineHeightPx * lines.length + 10*scale;assertTextRaster(textWidthPx,textHeightPx);
   const canvas = document.createElement('canvas');
   canvas.width = textWidthPx; canvas.height = textHeightPx;
   const ctx = canvas.getContext('2d');
@@ -1938,7 +1897,7 @@ async function makeInlineTextPng(text, fontSizePt, colorHex, fontFamily, bold, i
   let maxLineWidth = 0;
   lines.forEach(l => { maxLineWidth = Math.max(maxLineWidth, measure.measureText(l).width); });
   const canvasW = Math.max(1, Math.min(maxWidthPx, maxLineWidth));
-  const canvasH = Math.max(1, lineHeightPx * lines.length);
+  const canvasH = Math.max(1, lineHeightPx * lines.length);assertTextRaster(canvasW,canvasH);
   const canvas = document.createElement('canvas');
   canvas.width = canvasW; canvas.height = canvasH;
   const ctx = canvas.getContext('2d');
@@ -1968,7 +1927,8 @@ document.getElementById('btn-annotate-save').onclick = async () => {
   try{
     const pdfDoc = await PDFDocument.load(annotateBytesCache.slice(0));
     const pages = pdfDoc.getPages();
-    for(const ann of annotations){
+    for(const [index,ann] of annotations.entries()){
+      await AppTasks.step(index,annotations.length,'寫入標註');
       const page = pages[ann.page];
       if(!page) continue;
       const { width, height } = page.getSize();
@@ -1998,10 +1958,11 @@ document.getElementById('btn-annotate-save').onclick = async () => {
         page.drawImage(textImg, { x, y: yTop - heightPt, width: widthPt, height: heightPt });
       }
     }
+    AppTasks.phase('產生 PDF');
     const outBytes = await pdfDoc.save();
-    download(new Blob([outBytes], {type:'application/pdf'}), 'annotated.pdf');
+    download(new Blob([outBytes], {type:'application/pdf'}), 'annotated.pdf');annotationHistory.markSaved();updateAnnotationHistory();
     setStatus('status-annotate', `完成 · 共 ${annotations.length} 個標註`);
-  }catch(e){ setStatus('status-annotate', '錯誤: ' + e.message, true); }
+  }catch(e){ setStatus('status-annotate', e, true); }
 };
 
 /* ---------- PWA: 僅在使用者點選後顯示安裝提示 ---------- */

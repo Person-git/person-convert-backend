@@ -27,6 +27,10 @@ async function exercise(){
   assert.equal(joined[0],'First line continues.');
   const raw=await ocr.recognizePages({...pdf,numPages:1},{recognize:async(c,p,output)=>{assert.deepEqual(output,{text:true});return {data:{text:'Original\nlines'}};}},canvas,()=>{},new AbortController().signal,false,false);
   assert.equal(raw[0],'Original\nlines');
+  const selectedStages=[];
+  const selected=await ocr.recognizePages(pdf,worker,canvas,(...s)=>selectedStages.push(s),new AbortController().signal,false,false,false,false,null,[3,1]);
+  assert.equal(selected.length,2);assert.deepEqual(pageCleaned.slice(-2),[3,1]);
+  assert.deepEqual(selectedStages.filter(s=>s[2]==='done').map(s=>[s[0],s[1],s[4]]),[[1,2,3],[2,2,1]]);
   const controller=new AbortController();
   const pending=ocr.recognizePages({...pdf,numPages:1},{recognize:()=>{controller.abort();return new Promise(()=>{});}},canvas,()=>{},controller.signal);
   await assert.rejects(pending,{name:'AbortError'});

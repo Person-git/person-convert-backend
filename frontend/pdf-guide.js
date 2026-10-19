@@ -7,13 +7,14 @@
     return {kind:'text',message:'偵測到可選取文字，通常可直接轉 Word，不需要先跑 OCR。'};
   }
   function clear(panel){const old=active.get(panel);if(old){old.cancelled=true;old.task?.destroy().catch(()=>{});}active.delete(panel);panel.replaceChildren();}
-  async function inspect(file,panel,useWord,useOcr){
+  async function inspect(file,panel,useWord,useOcr,pageSpec=''){
     clear(panel);const state={cancelled:false,task:null};active.set(panel,state);panel.textContent='正在本機檢查文字層，文件不上傳…';
     try{
       state.task=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())});
       if(state.cancelled){await state.task.destroy();return;}
       const pdf=await state.task.promise;
-      const numbers=pdf.numPages<=30?Array.from({length:pdf.numPages},(_,i)=>i+1):Array.from({length:30},(_,i)=>1+Math.round(i*(pdf.numPages-1)/29));
+      const selected=root.AppCore.pages(pageSpec,pdf.numPages);
+      const numbers=selected.length<=30?selected:Array.from({length:30},(_,i)=>selected[Math.round(i*(selected.length-1)/29)]);
       const pages=[];
       for(const number of numbers){
         if(state.cancelled)return;
@@ -25,11 +26,11 @@
       if(state.cancelled)return;
       const result=classify(pages);panel.replaceChildren();
       const title=document.createElement('strong');title.textContent=result.message;panel.append(title);
-      const note=document.createElement('div');note.textContent=`${pdf.numPages>30?'抽樣檢查 30 / '+pdf.numPages+' 頁':'已檢查 '+pdf.numPages+' 頁'}。這是初步判斷；圖片內的文字、閱讀順序與辨識品質仍需校對。`;panel.append(note);
+      const note=document.createElement('div');note.textContent=`${selected.length>30?'抽樣檢查 30 / '+selected.length+' 個指定頁面':'已檢查 '+selected.length+' 個指定頁面'}。這是初步判斷；圖片內的文字、閱讀順序與辨識品質仍需校對。`;panel.append(note);
       const actions=document.createElement('div');actions.className='row';
       for(const [label,action] of [['改用直接擷取文字',useWord],['改用 OCR',useOcr]]){const b=document.createElement('button');b.className='run';b.type='button';b.textContent=label;b.onclick=action;actions.append(b);}panel.append(actions);
       return result;
-    }catch(error){if(!state.cancelled)panel.textContent=error.name==='PasswordException'?'此 PDF 需要開啟密碼，請先使用「09 解除 PDF 保護」，再重新選檔。':'無法完成文字層檢查，請確認 PDF 完整後重試。';}
+    }catch(error){if(!state.cancelled)panel.textContent=error.name==='PasswordException'?'此 PDF 需要開啟密碼，請先使用「09 解除 PDF 保護」，再重新選檔。':root.AppCore.errorMessage(error);}
     finally{if(state.task)await state.task.destroy().catch(()=>{});}
   }
   if(typeof module!=='undefined')module.exports={classify};else root.PdfGuide={inspect,clear};

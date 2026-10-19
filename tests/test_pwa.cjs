@@ -4,7 +4,7 @@ const cache={match:async key=>stored.get(typeof key==='string'?key:key.url),put:
 const context={URL,Request,Response,Promise,caches:{open:async()=>cache},self:{location:{origin:'https://convert-bench.pages.dev'},addEventListener:(name,fn)=>handlers[name]=fn},fetch:async request=>{fetches.push(request);if(context.offline)throw Error('offline');return new Response('network');}};
 vm.createContext(context);vm.runInContext(fs.readFileSync('frontend/sw.js','utf8'),context);
 const cachedAssets=vm.runInContext('LOCAL',context),html=fs.readFileSync('frontend/index.html','utf8');
-for(const script of html.matchAll(/<script src="([^":]+\.js)"/g))assert(cachedAssets.includes('/'+script[1]),'Missing offline script: '+script[1]);
+for(const script of html.matchAll(/<script src="([^":]+\.js)(?:\?[^"\s]*)?"/g))assert(cachedAssets.includes('/'+script[1]),'Missing offline script: '+script[1]);
 for(const asset of cachedAssets)assert(fs.existsSync('frontend'+(asset==='/'?'/index.html':asset)),'Missing cached asset: '+asset);
 function dispatch(url,method='GET',mode='cors'){
  let result;handlers.fetch({request:{url,method,mode},respondWith:p=>result=p});return result;
@@ -17,6 +17,7 @@ function dispatch(url,method='GET',mode='cors'){
  stored.set('/',new Response('cached shell'));context.offline=true;
  assert.equal(await(await dispatch('https://convert-bench.pages.dev/','GET','navigate')).text(),'cached shell');
  assert.equal((await dispatch('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js')).status,503);
+ stored.set('/app-core.js',new Response('offline core'));assert.equal(await(await dispatch('https://convert-bench.pages.dev/app-core.js?v=11')).text(),'offline core');
  context.offline=false;assert.equal(await(await dispatch('https://convert-bench.pages.dev/','GET','navigate')).text(),'network');
  const url='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';stored.set(url,new Response('cached library'));
  const count=fetches.length;assert.equal(await(await dispatch(url)).text(),'cached library');assert.equal(fetches.length,count);
