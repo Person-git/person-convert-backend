@@ -14,7 +14,7 @@
       const text=word.text?.trim(),confidence=word.confidence;
       if(!text||!/[\p{L}\p{N}]/u.test(text)||!Number.isFinite(confidence)||confidence>=80)continue;
       const identity=key(word.bbox)+'|'+text;if(seen.has(identity))continue;seen.add(identity);
-      items.push({page,text:text.slice(0,120),confidence:Math.max(0,Math.min(100,Math.round(confidence))),position:word.bbox&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:retained.get(key(word.bbox))||null});
+      items.push({page,text:text.slice(0,120),confidence:Math.max(0,Math.min(100,Math.round(confidence))),position:word.bbox&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:retained.get(key(word.bbox))||null,bbox:word.bbox?{...word.bbox}:null});
     }
     return items;
   }
@@ -38,7 +38,8 @@
       location.textContent=`第 ${item.page} 頁 · 距頂端 ${item.position??'?'}% · `;
       word.textContent=item.text;
       note.textContent=` · 信心 ${item.confidence}/100${item.retained?` · ${item.retained}，保留原圖不可編輯`:''}`;
-      row.append(location,word,note);list.appendChild(row);
+      row.append(location,word,note);
+      if(item.image){const details=document.createElement('details'),summary=document.createElement('summary'),image=document.createElement('img');summary.textContent='查看原圖字詞';image.className='ocr-source';image.src=item.image;image.alt=`第 ${item.page} 頁原圖字詞局部`;image.loading='lazy';details.append(summary,image);row.append(details);}list.appendChild(row);
     }
     document.getElementById('btn-review-download').onclick=()=>{
       const url=URL.createObjectURL(new Blob([reviewText(review)],{type:'text/plain;charset=utf-8'})),link=document.createElement('a');
@@ -126,7 +127,14 @@
           review.pages=(review.pages||0)+1;
           const hasScores=(result.data.blocks||[]).some(b=>(b.paragraphs||[]).some(p=>(p.lines||[]).some(l=>(l.words||[]).some(w=>Number.isFinite(w.confidence)))));
           if(!hasScores)review.unavailable=(review.unavailable||0)+1;
-          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines);review.total+=items.length;review.items.push(...items.slice(0,Math.max(0,200-review.items.length)));
+          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines);review.total+=items.length;
+          const kept=items.slice(0,Math.max(0,200-review.items.length));
+          if(typeof document!=='undefined'&&root.WorkspaceTools){for(const item of kept){
+            if((review.imageBytes||0)>=2*1024*1024)break;
+            const box=root.WorkspaceTools.cropBox(item.bbox,canvas.width,canvas.height);if(!box)continue;
+            const crop=createCanvas();try{crop.width=box.width;crop.height=box.height;crop.getContext('2d').drawImage(canvas,box.x,box.y,box.w,box.h,0,0,box.width,box.height);const image=crop.toDataURL('image/png');if((review.imageBytes||0)+image.length*2<=2*1024*1024){item.image=image;review.imageBytes=(review.imageBytes||0)+image.length*2;}}finally{crop.width=crop.height=0;}
+          }}
+          review.items.push(...kept);
         }
         onPage(index+1,numbers.length,'done',0,number);
       }finally{

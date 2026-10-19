@@ -15,6 +15,7 @@ window.LocalCompress={
           if(event.data.stage){setStatus(status,event.data.stage);return;}
           if(event.data.error){reject(new Error(event.data.error));return;}
           AppTasks.check();const output=event.data.bytes;
+          CompressionPreview.set(file,new Blob([output],{type:'application/pdf'}));
           if(output.byteLength>=file.size){setStatus(status,'完成 · 原檔已有效壓縮，無損整理沒有縮小；未下載較大的檔案');resolve();return;}
           download(new Blob([output],{type:'application/pdf'}),'compressed-lossless.pdf');
           setStatus(status,`完成 · ${formatBytes(file.size)} → ${formatBytes(output.byteLength)}（縮小 ${(100-output.byteLength/file.size*100).toFixed(1)}%）`+(event.data.warning?' · 來源有結構警告，請檢查輸出':''));resolve();

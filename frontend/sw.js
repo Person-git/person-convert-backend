@@ -1,6 +1,6 @@
 /* Cache only public application assets: never PDFs, passwords, outputs or API requests. */
-const CACHE='person-convert-pwa-v11';
-const LOCAL=['/','/index.html','/app-core.js','/lazy-pdf.js','/manifest.json','/ocr-word.js','/ocr-layout.js','/ocr-style.js','/ocr-flow.js','/pdf-fidelity.js','/pdf-guide.js','/local-convert.js','/local-compress.js','/unlock-pdf.js','/unlock-worker.js','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png'];
+const CACHE='person-convert-pwa-v12';
+const LOCAL=['/','/index.html','/app-core.js','/lazy-pdf.js','/workspace-tools.js','/manifest.json','/ocr-word.js','/ocr-layout.js','/ocr-style.js','/ocr-flow.js','/pdf-fidelity.js','/pdf-guide.js','/local-convert.js','/local-compress.js','/unlock-pdf.js','/unlock-worker.js','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png'];
 const LIBRARIES=[
   'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
@@ -47,3 +47,5 @@ self.addEventListener('fetch',event=>{
     }
   })());
 });
+
+self.addEventListener('message',event=>{if(event.data==='APP_VERSION')event.ports[0]?.postMessage(CACHE);});

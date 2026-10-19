@@ -51,3 +51,6 @@ PDF 的字形如果已轉成輪廓，字型名稱、文字內容與段落語意�
 取消每詞獨立文字框，改為逐行定位並保留行內混合樣式；遮罩改按實際可編輯字詞繪製，低信心字詞、單獨符號、小圖示內文字及依底部位置、字高與正文間距判斷的頁尾文字保留原圖，不以錯誤 OCR 蓋掉原符號。它是外觀與可編輯性的折衷，不宣稱所有文字皆可編輯。
 
 Word fitText 依據 [Microsoft Open XML 說明](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.fittext?view=openxml-3.0.1) 以 twips 設定文字群組寬度；不同閱讀軟體可能呈現差異。
+
+
+OCR 校對清單新增「查看原圖字詞」局部預覽，僅作人工校對，不以低信心分數自動改字。最多列出200詞，局部圖360×90px、總字串預算2MiB；局部圖不包含在TXT報告或DOCX內，超過預算仍顯示文字清單。

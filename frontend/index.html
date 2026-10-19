@@ -13,17 +13,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=11"></script>
-<script src="lazy-pdf.js?v=11"></script>
-<script src="ocr-layout.js?v=11"></script>
-<script src="ocr-style.js?v=11"></script>
-<script src="ocr-flow.js?v=11"></script>
-<script src="pdf-fidelity.js?v=11"></script>
-<script src="pdf-guide.js?v=11"></script>
-<script src="ocr-word.js?v=11"></script>
-<script src="local-convert.js?v=11"></script>
-<script src="unlock-pdf.js?v=11"></script>
-<script src="local-compress.js?v=11"></script>
+<script src="app-core.js?v=12"></script>
+<script src="lazy-pdf.js?v=12"></script>
+<script src="workspace-tools.js?v=12"></script>
+<script src="ocr-layout.js?v=12"></script>
+<script src="ocr-style.js?v=12"></script>
+<script src="ocr-flow.js?v=12"></script>
+<script src="pdf-fidelity.js?v=12"></script>
+<script src="pdf-guide.js?v=12"></script>
+<script src="ocr-word.js?v=12"></script>
+<script src="local-convert.js?v=12"></script>
+<script src="unlock-pdf.js?v=12"></script>
+<script src="local-compress.js?v=12"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -130,6 +131,18 @@
   body[data-task-active] .conversion-progress{display:none;}body[data-task-active] .annotate-overlay{pointer-events:none!important;}
   .lazy-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;box-sizing:border-box;background:#f3f5f8;color:#657388;font-size:12px;text-align:center;}.lazy-message[hidden]{display:none;}
   .page-selection{width:min(100%,320px);}.page-selection input{width:100%;box-sizing:border-box;}
+
+  .page-selection input[type=text]{width:100%;}
+  .workspace-nav{max-width:1120px;margin:20px auto;padding:0 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .workspace-nav button,.pm-actions button,.pm-card button,.preview-button{border:1px solid #cbd8e5;border-radius:8px;padding:7px 10px;background:#fff;color:#34536b;cursor:pointer;font:inherit;font-size:12px;}
+  .workspace-nav button[aria-pressed=true]{background:#147d75;color:white;border-color:#147d75;}
+  .sheet[hidden]{display:none;}.processing-badge{display:inline-block;font-size:11px;padding:4px 8px;border-radius:12px;background:#eef5ff;color:#385b91;margin-top:8px;}
+  .pm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;}.pm-card{box-sizing:border-box;outline-offset:2px;}.pm-card[data-selected=true]{outline:2px solid #179589;}.pm-card[data-excluded=true]{opacity:.55;}
+  .pm-card label{display:block;margin:8px 0;font-size:12px;}.pm-card input{width:auto;}.pm-card .pm-buttons{display:flex;flex-wrap:wrap;gap:4px;}.pm-card button{font-size:11px;padding:5px 7px;}
+  .preview-panel{margin-top:14px;padding:14px;border:1px solid #d3e0e8;border-radius:10px;background:#f8fafc;}.preview-panel[hidden]{display:none;}
+  .table-scroll{max-height:320px;overflow:auto;}.preview-panel table{border-collapse:collapse;background:white;font-size:12px;}.preview-panel td,.preview-panel th{padding:7px;border:1px solid #d4dde7;white-space:pre-wrap;min-width:70px;max-width:260px;overflow-wrap:anywhere;}
+  .comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.comparison-grid img{width:100%;background:#fff;border:1px solid #dae3ed;}.ocr-source{display:block;max-width:100%;max-height:100px;object-fit:contain;object-position:left; margin:7px 0;border:1px solid #d3dce7;background:white;}
+  #update-banner{background:#eef1ff;border-color:#c9d2f4;}@media(max-width:520px){.comparison-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -147,6 +160,8 @@
 <div id="task-banner" class="task-banner" role="status" aria-live="polite" hidden><strong id="task-label"></strong><span id="task-clock"></span><progress id="task-progress" max="100" aria-label="目前工作進度"></progress><button id="task-cancel" type="button">取消目前工作</button></div>
 <div id="engine-warning" class="engine-warning" role="alert" hidden>基本工具套件尚未載入，請確認網路後重新整理；離線使用前需先連線開啟一次。</div>
 <dialog id="annotation-editor" style="width:min(480px,85vw);border:1px solid #cbd5e1;border-radius:14px;padding:22px;"><form method="dialog"><h3 id="annotation-editor-title"></h3><textarea id="annotation-editor-text" rows="5" maxlength="4000" style="width:100%;box-sizing:border-box;padding:10px;font:inherit;"></textarea><div class="row"><button value="save" class="run">確定</button><button value="cancel" class="run">取消</button></div></form></dialog>
+<div id="update-banner" class="task-banner" hidden><strong>已有新版可用</strong><span>下載中的工作及尚未儲存的標註會保留在目前頁面；準備好後再更新。</span><button id="reload-app" type="button">重新載入新版</button><span id="update-note"></span></div>
+<nav id="workspace-nav" class="workspace-nav" aria-label="工具分類"></nav>
 <main>
 
   <!-- PDF瀏覽與備註 -->
@@ -307,7 +322,7 @@
       拖曳 PDF 到這裡
     </div>
     <div class="filelist" id="list-split"></div>
-    <div id="thumbs-pm"></div>
+    <div class="pm-actions" id="pm-actions"><button type="button" data-pm="all">全選保留</button><button type="button" data-pm="none">取消全選</button><button type="button" data-pm="rotate">旋轉勾選頁 ↻</button><button type="button" data-pm="delete">刪除勾選頁</button><button type="button" data-pm="reset">還原原始順序與方向</button></div><p class="desc">勾選要保留的頁面，可拖曳縮圖或按前移／後移調整順序。刪除只影響輸出，原檔不變。</p><div id="thumbs-pm"></div>
     <div class="row">
       <div class="field" style="width:280px;">
         <label>保留頁碼與順序（例：3,1,2 或 3-6；未列出的頁面不輸出）</label>
@@ -793,7 +808,7 @@ setupDropzone('dz-split', 'input-split', async files => {
     document.getElementById('btn-pm').disabled=true;
     document.getElementById('btn-pm-preview').disabled=false;
     document.getElementById('split-password').value='';
-    renderList('list-split', [splitFile], () => { if(splitImageBusy)return; splitFile=pmFile=null;pmPreview?.dispose();pmPreview=null; pmTotalPages=0; document.getElementById('thumbs-pm').innerHTML=''; document.getElementById('btn-pm').disabled=true; document.getElementById('btn-pm-preview').disabled=true; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; document.getElementById('btn-split-image').disabled=true; document.getElementById('split-password').value=''; });
+    renderList('list-split', [splitFile], () => { if(splitImageBusy)return; splitFile=pmFile=null;pmPreview?.dispose();pmPreview=null; pmTotalPages=0;PageTools.reset(0); document.getElementById('thumbs-pm').innerHTML=''; document.getElementById('btn-pm').disabled=true; document.getElementById('btn-pm-preview').disabled=true; renderList('list-split',[]); document.getElementById('btn-split-range').disabled=true; document.getElementById('btn-split-all').disabled=true; document.getElementById('btn-split-image').disabled=true; document.getElementById('split-password').value=''; });
     document.getElementById('btn-split-range').disabled = false;
     document.getElementById('btn-split-all').disabled = false;
     document.getElementById('btn-split-image').disabled = false;
@@ -1130,11 +1145,8 @@ let pmTotalPages = 0;
 document.getElementById('btn-pm-preview').onclick = renderPmThumbs;
 let pmPreview=null;
 async function renderPmThumbs(){
-  pmPreview?.dispose();const file=pmFile;if(!file)return;const container=document.getElementById('thumbs-pm');container.textContent='正在讀取頁數…';
-  const viewer=new LazyPDF(container,{scale:.25,maxCanvases:48,onCount:count=>{if(pmPreview===viewer){pmTotalPages=count;if(!AppTasks.busy)document.getElementById('btn-pm').disabled=false;}},makeShell:(index,view)=>{
-    const wrap=document.createElement('div'),frame=document.createElement('div'),canvas=document.createElement('canvas'),label=document.createElement('div');
-    wrap.style.cssText=`text-align:center;width:${view.width}px;max-width:100%;`;frame.style.width='100%';canvas.style.border='1px solid #dce2e9';label.textContent=index+1;label.style.cssText='font-size:11px;color:#687b91;margin:4px 0';frame.append(canvas);wrap.append(frame,label);return {wrap,frame,canvas};
-  }});pmPreview=viewer;
+  pmPreview?.dispose();PageTools.reset(0);const file=pmFile;if(!file)return;const container=document.getElementById('thumbs-pm');container.textContent='正在讀取頁數…';
+  const viewer=new LazyPDF(container,{scale:.25,maxCanvases:48,onCount:count=>{if(pmPreview===viewer){pmTotalPages=count;PageTools.reset(count);if(!AppTasks.busy)document.getElementById('btn-pm').disabled=false;}},onRender:item=>PageTools.rendered(item),makeShell:(index,view)=>PageTools.shell(index,view)});pmPreview=viewer;
   try{await viewer.load(file,document.getElementById('split-password').value);}catch(e){if(pmPreview===viewer){container.textContent=AppCore.errorMessage(e);viewer.dispose();}}
 }
 
@@ -1151,7 +1163,7 @@ document.getElementById('btn-pm').onclick = async () => {
     const out = await PDFDocument.create();
     const indices = order.map(n => n - 1);
     const pages = await out.copyPages(src, indices);
-    pages.forEach(p => out.addPage(p));
+    pages.forEach((p,i) => {const rotation=PageTools.rotation(order[i]);if(rotation)p.setRotation(PDFLib.degrees((p.getRotation().angle+rotation)%360));out.addPage(p);});
     AppTasks.phase('產生 PDF');
     const outBytes = await out.save();
     download(new Blob([outBytes], {type:'application/pdf'}), 'reordered.pdf');
@@ -1226,6 +1238,7 @@ async function callBackendConvert(path, file, defaultFilename, queryParams='', o
     const ratio = (100 - Number(compressedSize)/Number(originalSize)*100).toFixed(1);
     detail = ` · ${formatBytes(Number(originalSize))} → ${formatBytes(Number(compressedSize))}（縮小 ${ratio}%）`;
   }
+  if(path==='/convert/pdf-compress')CompressionPreview.set(file,xhr.response);
   return {seconds:xhr.getResponseHeader('X-Conversion-Seconds'), detail};
 }
 
@@ -1329,8 +1342,8 @@ wordButton.onclick=async()=>{
 let xlsxFile = null;
 setupDropzone('dz-xlsx', 'input-xlsx', files => {
   if(files[0] && files[0].type === 'application/pdf'){
-    xlsxFile = files[0];
-    renderList('list-xlsx', [xlsxFile], () => { xlsxFile=null; renderList('list-xlsx',[]); document.getElementById('btn-xlsx').disabled=true; });
+    xlsxFile = files[0];ExcelPreview.select(xlsxFile);
+    renderList('list-xlsx', [xlsxFile], () => { xlsxFile=null;ExcelPreview.select(null); renderList('list-xlsx',[]); document.getElementById('btn-xlsx').disabled=true; });
     document.getElementById('btn-xlsx').disabled = false;
   }
 });
@@ -1355,8 +1368,8 @@ document.getElementById('btn-svg').onclick = async () => {
 let compressFile = null;
 setupDropzone('dz-compress', 'input-compress', files => {
   if(files[0] && files[0].type === 'application/pdf'){
-    compressFile = files[0];
-    renderList('list-compress', [compressFile], () => { compressFile=null; renderList('list-compress',[]); document.getElementById('btn-compress').disabled=true; });
+    compressFile = files[0];CompressionPreview.clear();
+    renderList('list-compress', [compressFile], () => { compressFile=null;CompressionPreview.clear(); renderList('list-compress',[]); document.getElementById('btn-compress').disabled=true; });
     document.getElementById('btn-compress').disabled = false;
   }
 });
@@ -1978,7 +1991,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v6');
+      const cache=await caches.open('person-convert-pwa-v12');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
