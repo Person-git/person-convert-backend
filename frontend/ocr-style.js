@@ -3,12 +3,25 @@
   'use strict';
   const LATIN=['Arial','Times New Roman','Calibri','Georgia','Verdana','Courier New'];
   const CJK=['Microsoft JhengHei','PMingLiU','Microsoft YaHei','SimSun'];
+  const TEMPLATE_BYTES=32*1024*1024;
+  const seenCaches=new WeakMap();
+  // Timer-based yields can be clamped heavily in background tabs. A task message
+  // still lets input/cancellation run without adding a timer delay to every line.
+  function yieldTask(){
+    return new Promise(resolve=>{
+      const channel=new MessageChannel();
+      channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};
+      channel.port2.postMessage(null);
+    });
+  }
   const abort=signal=>{if(signal?.aborted){const error=new Error('已取消 OCR');error.name='AbortError';throw error;}};
   function inkBounds(data,width,height){
     let x0=width,y0=height,x1=-1,y1=-1;
     for(let y=0;y<height;y++)for(let x=0;x<width;x++){
       const i=(y*width+x)*4;
-      if(data[i+3]>80&&Math.min(data[i],data[i+1],data[i+2])<170){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
+      if(data[i+3]>80&&(data[i]<170||data[i+1]<170||data[i+2]<170)){
+        if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;y1=y;
+      }
     }
     return x1<x0?null:{x:x0,y:y0,width:x1-x0+1,height:y1-y0+1};
   }
@@ -21,7 +34,7 @@
     return Math.abs(a-b)>.1||Math.abs(c-d)>.1;
   }
   function pixels(canvas,box,scratch,width){
-    scratch.width=width;scratch.height=32;
+    if(scratch.width!==width)scratch.width=width;if(scratch.height!==32)scratch.height=32;
     const ctx=scratch.getContext('2d',{willReadFrequently:true});
     ctx.fillStyle='#fff';ctx.fillRect(0,0,width,32);
     ctx.drawImage(canvas,box.x,box.y,box.width,box.height,0,0,width,32);
@@ -44,6 +57,9 @@
     const template=createCanvas(),scratch=createCanvas(),crop=createCanvas();
     const probe=template.getContext('2d',{willReadFrequently:true});
     const families=[...LATIN,...CJK].filter(f=>available(f,probe));
+    let templateBytes=0;for(const sample of templates.values())templateBytes+=sample.pixels.byteLength;
+    let seen=seenCaches.get(templates);if(!seen){seen=new Set();seenCaches.set(templates,seen);}
+    const frequency=new Map();for(const line of lines)for(const word of line.words?.length?line.words:[line]){const text=word.text?.trim();if(text)frequency.set(text,(frequency.get(text)||0)+1);}
     const stats={matched:0,uncertain:0,inherited:0,bold:0,italic:0,words:0};
     const output=[];
     try{
@@ -71,14 +87,29 @@
                 else{
                   const font=`${italic?'italic ':''}${bold?'bold ':''}40px "${family}"`;
                   probe.font=font;const metrics=probe.measureText(text);if(metrics.width>1900)continue;
-                  template.width=Math.ceil(metrics.width+32);template.height=80;
+                  const tw=Math.ceil(metrics.width+32);
+                  if(template.width!==tw)template.width=tw;if(template.height!==80)template.height=80;
                   const tc=template.getContext('2d',{willReadFrequently:true});tc.font=font;
                   tc.fillStyle='#fff';tc.fillRect(0,0,template.width,80);tc.fillStyle='#000';tc.fillText(text,16,58);
-                  const rect=inkBounds(tc.getImageData(0,0,template.width,80).data,template.width,80);
+                  // TextMetrics bounds include glyph overhangs. Read just their
+                  // padded area; keep the original raster and normalisation.
+                  const valid=[metrics.actualBoundingBoxLeft,metrics.actualBoundingBoxRight,metrics.actualBoundingBoxAscent,metrics.actualBoundingBoxDescent].every(Number.isFinite);
+                  const rx=valid?Math.max(0,Math.floor(16-metrics.actualBoundingBoxLeft)-2):0;
+                  const ry=valid?Math.max(0,Math.floor(58-metrics.actualBoundingBoxAscent)-2):0;
+                  const rw=valid?Math.max(1,Math.min(template.width,Math.ceil(16+metrics.actualBoundingBoxRight)+2)-rx):template.width;
+                  const rh=valid?Math.max(1,Math.min(80,Math.ceil(58+metrics.actualBoundingBoxDescent)+2)-ry):80;
+                  const rect=inkBounds(tc.getImageData(rx,ry,rw,rh).data,rw,rh);
                   if(!rect)continue;
+                  rect.x+=rx;rect.y+=ry;
                   sample={pixels:pixels(template,rect,scratch,width),aspect:rect.width/rect.height,sizeFactor:40/rect.height};
-                  if(templates.size>=1024)templates.delete(templates.keys().next().value);
-                  templates.set(key,sample);
+                  // One-off words otherwise evict frequently repeated samples.
+                  if(frequency.get(text)>1||seen.has(text)){
+                    while(templates.size&&(templates.size>=4096||templateBytes+sample.pixels.byteLength>TEMPLATE_BYTES)){
+                      const oldest=templates.keys().next().value;templateBytes-=templates.get(oldest).pixels.byteLength;templates.delete(oldest);
+                    }
+                    templates.set(key,sample);
+                    templateBytes+=sample.pixels.byteLength;
+                  }
                 }
                 const score=distance(source,sample.pixels)+.18*Math.abs(Math.log((bounds.width/bounds.height)/sample.aspect));
                 candidates.push({score,fontFamily:family,bold,italic,fontSize:sample.sizeFactor*bounds.height/scale});
@@ -112,11 +143,12 @@
         }
         onProgress(index+1,lines.length);
         // Yield between lines so cancellation and progress remain responsive.
-        if(index%4===0)await new Promise(resolve=>setTimeout(resolve,0));
+        if(index%4===0)await yieldTask();
       }
+      for(const text of frequency.keys()){if(seen.size>=4096)seen.delete(seen.values().next().value);seen.add(text);}
       abort(signal);return {lines:output,stats};
     }finally{for(const c of [template,scratch,crop])c.width=c.height=0;}
   }
-  const api={analyze,inkBounds,distance,rank};
+  const api={analyze,inkBounds,distance,rank,yieldTask};
   if(typeof module!=='undefined')module.exports=api;else root.OCRStyle=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

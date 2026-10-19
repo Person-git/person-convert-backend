@@ -15,5 +15,8 @@ assert(xml.includes('Normal'));assert(xml.includes('Bold'));assert(xml.includes(
  const control=new AbortController();control.abort();
  await assert.rejects(style.analyze(words,{},1,canvas,control.signal),{name:'AbortError'});
  assert(allocated.every(c=>!c.width&&!c.height));
+ const duringYield=new AbortController();
+ await assert.rejects(style.analyze([{text:''}],{},1,canvas,duringYield.signal,()=>duringYield.abort()),{name:'AbortError'});
+ await style.yieldTask(); // Task ports must close, allowing this process to exit.
  console.log('OCR style bounds, matching, ambiguity, word geometry, mixed Word styles and cancellation passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
