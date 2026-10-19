@@ -34,7 +34,7 @@
     });
     return sheetLoader;
   }
-  async function run(kind,file,pageValue=''){
+  async function run(kind,file,pageValue='',options={}){
     const button=document.getElementById('btn-'+kind),status='status-'+kind;
     if(!file||button.dataset.busy)return;
     button.dataset.busy='1';button.disabled=true;
@@ -47,7 +47,7 @@
       setStatus(status,'讀取 PDF · 全程在瀏覽器處理');
       const sheets=kind==='xlsx'?await AppTasks.wait(loadSheets()):null;AppTasks.check();
       task=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),fontExtraProperties:kind==='svg'||preserve,isOffscreenCanvasSupported:false});AppTasks.watch(task);const pdf=await task.promise;
-      const numbers=AppCore.pages(pageValue,pdf.numPages);
+      const allNumbers=AppCore.pages(pageValue,pdf.numPages),numbers=options.trial?allNumbers.slice(0,1):allNumbers;
       const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg,imageBytes=0;const texts=[];
       for(let i=0;i<numbers.length;i++){
         await AppTasks.step(i,numbers.length,'轉換頁面');
@@ -79,7 +79,7 @@
       AppTasks.phase('產生下載檔案');
       if(kind==='docx'){
         if(!textCount)throw new Error('沒有可選取文字，請改用 OCR → Word');
-        download(await OCRWord.createDocx(texts,JSZip,preserve),preserve?'images-fonts.docx':'text-converted.docx');
+        const blob=await OCRWord.createDocx(texts,JSZip,preserve);if(options.trial)await root.WordTrial.show(file,numbers[0],texts[0],preserve,blob);else download(blob,preserve?'images-fonts.docx':'text-converted.docx');
       }else if(sheets){
         if(!textCount)throw new Error('沒有可擷取的文字，掃描圖片與輪廓文字需先 OCR');
         download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');

@@ -6,12 +6,13 @@ function el(id){if(!elements.has(id))elements.set(id,{value:id==='docx-mode'?'au
 let remove;
 const context={document:{getElementById:el},window:{},PdfGuide:{clear(){},inspect:file=>file.inspection},setStatus:(id,text)=>statuses.push(text),renderList:(id,files,onRemove)=>{el(id).children=files;remove=onRemove;},setupDropzone(){},OCRWord:{runFile:async file=>calls.push(['ocr',file.name])},LocalConvert:{run:async(kind,file)=>calls.push(['local',file.name])},runBackendConvert:async(id,status,action)=>action(),callBackendConvert:async(path,file)=>calls.push(['backend',file.name])};
 vm.createContext(context);vm.runInContext(html.slice(start,end),context);
+const trialCalls=[];context.LocalConvert.run=async(kind,file,spec,options)=>{calls.push(['local',file.name]);trialCalls.push({kind,spec,trial:options?.trial});};
 const choose=context.window.chooseWordFile,button=el('btn-docx'),mode=el('docx-mode');
 const flush=()=>Promise.resolve();
 function file(name,kind){return {name:name+'.pdf',type:'application/pdf',size:100,inspection:Promise.resolve(kind?{kind}:undefined)};}
 (async()=>{
   choose(file('text','text'));assert(button.disabled);await flush();assert(!button.disabled);assert(el('word-ocr-options').hidden);
-  await button.onclick();assert.deepEqual(calls.pop(),['local','text.pdf']);
+  await button.onclick();assert.deepEqual(calls.pop(),['local','text.pdf']);assert.equal(trialCalls.at(-1).trial,false);el('docx-pages').value='2,1';await el('btn-word-trial').onclick();assert.equal(trialCalls.at(-1).trial,true);assert.equal(trialCalls.at(-1).spec,'2,1');assert.equal(el('docx-pages').value,'2,1');calls.pop();el('docx-pages').value='';
   choose(file('scan','ocr'));await flush();assert(!el('word-ocr-options').hidden);
   await button.onclick();assert.deepEqual(calls.pop(),['ocr','scan.pdf']);
   choose(file('mixed','mixed'));await flush();await button.onclick();assert.equal(calls.pop()[0],'ocr');

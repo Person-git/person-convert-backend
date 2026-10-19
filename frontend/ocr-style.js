@@ -121,7 +121,7 @@
           const family=cjk?'Microsoft JhengHei':'Arial';
           probe.font=`100px "${family}"`;const metrics=probe.measureText(text);
           const estimated=100/scale*Math.min((b.x1-b.x0)/Math.max(1,metrics.actualBoundingBoxLeft+metrics.actualBoundingBoxRight),(b.y1-b.y0)/Math.max(1,metrics.actualBoundingBoxAscent+metrics.actualBoundingBoxDescent));
-          const item={text,bbox:{...b},fontFamily:family,fontSize:estimated,confidence:word.confidence??90,symbolLike:!!symbolLike,estimated:true};
+          const item={text,color:root.TextColor?.sample(canvas,b),bbox:{...b},fontFamily:family,fontSize:estimated,confidence:word.confidence??90,symbolLike:!!symbolLike,estimated:true};
           if(accepted)Object.assign(item,{fontFamily:best.fontFamily,bold:best.bold,italic:best.italic,fontSize:best.fontSize,matched:true});
           results.push(item);
         }

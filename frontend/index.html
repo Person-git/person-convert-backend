@@ -13,18 +13,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=12"></script>
-<script src="lazy-pdf.js?v=12"></script>
-<script src="workspace-tools.js?v=12"></script>
-<script src="ocr-layout.js?v=12"></script>
-<script src="ocr-style.js?v=12"></script>
-<script src="ocr-flow.js?v=12"></script>
-<script src="pdf-fidelity.js?v=12"></script>
-<script src="pdf-guide.js?v=12"></script>
-<script src="ocr-word.js?v=12"></script>
-<script src="local-convert.js?v=12"></script>
-<script src="unlock-pdf.js?v=12"></script>
-<script src="local-compress.js?v=12"></script>
+<script src="app-core.js?v=13"></script>
+<script src="lazy-pdf.js?v=13"></script>
+<script src="workspace-tools.js?v=13"></script>
+<script src="word-trial.js?v=13"></script>
+<script src="text-color.js?v=13"></script>
+<script src="ocr-layout.js?v=13"></script>
+<script src="ocr-style.js?v=13"></script>
+<script src="ocr-flow.js?v=13"></script>
+<script src="pdf-fidelity.js?v=13"></script>
+<script src="pdf-guide.js?v=13"></script>
+<script src="ocr-word.js?v=13"></script>
+<script src="local-convert.js?v=13"></script>
+<script src="unlock-pdf.js?v=13"></script>
+<script src="local-compress.js?v=13"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -143,6 +145,9 @@
   .table-scroll{max-height:320px;overflow:auto;}.preview-panel table{border-collapse:collapse;background:white;font-size:12px;}.preview-panel td,.preview-panel th{padding:7px;border:1px solid #d4dde7;white-space:pre-wrap;min-width:70px;max-width:260px;overflow-wrap:anywhere;}
   .comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.comparison-grid img{width:100%;background:#fff;border:1px solid #dae3ed;}.ocr-source{display:block;max-width:100%;max-height:100px;object-fit:contain;object-position:left; margin:7px 0;border:1px solid #d3dce7;background:white;}
   #update-banner{background:#eef1ff;border-color:#c9d2f4;}@media(max-width:520px){.comparison-grid{grid-template-columns:1fr;}}
+
+  .trial-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}.trial-grid img{max-width:100%;border:1px solid #d8e0e8;}.trial-page{position:relative;background:white;overflow:hidden;border:1px solid #d8e0e8;}.trial-page>img{display:block;width:100%;border:0;}.trial-line{position:absolute;white-space:pre;line-height:1.1;transform-origin:top left;}.trial-text{white-space:pre-wrap;background:white;padding:16px;max-height:600px;overflow:auto;}.trial-grid>div{min-width:0;}.review-context{max-width:100%;max-height:180px;object-fit:contain;object-position:left;display:block;}.offline-list{padding:0;list-style:none;}.offline-list li{padding:8px;border-bottom:1px solid #dce5ee;}.workspace-nav{position:sticky;top:0;z-index:90;background:#f6f7f9;padding-top:10px;padding-bottom:10px;border-radius:10px;}.sheet{scroll-margin-top:132px;}.task-banner{top:64px;}
+  @media(max-width:640px){header{padding:24px 18px;}header h1{font-size:28px;}.hero-subtitle{font-size:16px;}main{padding:0 10px;}.sheet{padding:20px 16px;}.row{align-items:stretch;}.row>.field{width:100%!important;min-width:0;}.field input[type=text],.field select,select{max-width:100%;}.run,.preview-button,.pm-actions button,.pm-card button,.workspace-nav button{min-height:44px;}.row>.run{flex:1;min-width:130px;}.trial-grid{grid-template-columns:1fr;}#thumbs-pm{grid-template-columns:repeat(2,minmax(0,1fr));}.pm-card{width:100%!important;}.pm-card label{min-height:36px;display:flex;gap:6px;align-items:center;}.pm-card input{width:20px;height:20px;}.tool-nav{gap:8px;}.workspace-nav{gap:6px;margin:10px 0;padding:8px 10px;}.workspace-nav button{flex:1;white-space:nowrap;}.sheet{scroll-margin-top:220px;}.task-banner{top:108px;margin:8px 10px;padding:10px;}.sheet-head{flex-wrap:wrap;}#docx-mode{width:100%!important;}}
 </style>
 </head>
 <body>
@@ -495,13 +500,15 @@
     </fieldset>
     <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
+      <button class="run" id="btn-word-trial" disabled>先試轉一頁（本機）</button>
       <button class="run" id="btn-docx" disabled>轉換並下載 Word</button>
       <button class="run" id="btn-ocr-cancel" disabled>取消 OCR</button>
     </div>
+    <div id="word-trial-panel" class="preview-panel" hidden></div>
     <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
     <div class="status" id="status-docx" role="status" aria-live="polite"></div>
     <details class="ocr-review" id="ocr-review" hidden><summary id="ocr-review-summary">OCR 校對清單</summary>
-      <p>以下是 OCR 信心低於 80 的字詞，分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
+      <p>以下是 OCR 信心低於 80 的字詞，分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。清單優先排列數字／常見單位，其次為大寫開頭的可能名稱（僅為提示）。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
       <p id="ocr-review-coverage"></p><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
       <p class="desc">清單最多列出 200 個字詞；只保留在目前頁面，重選、移除檔案或開始下一次轉換即清除，不會上傳。</p>
     </details>
@@ -624,7 +631,7 @@
 
   <details class="sheet it-settings" id="pwa-help">
     <summary><span class="it-title">安裝與離線使用</span><span class="it-hint">自願安裝，像一般 App 一樣從桌面或主畫面開啟。</span><span class="it-toggle" aria-hidden="true"></span></summary>
-    <div class="it-content"><p class="desc">電腦 Chrome／Edge 或 Android：使用瀏覽器選單的「安裝應用程式」，或上方出現的「安裝 App」按鈕。iPhone／iPad：在 Safari 分享選單選擇「加入主畫面」。</p><p class="desc">安裝不會自動進行，也不會隨開機執行。先連線開啟網站；OCR、Excel、解除保護與無損壓縮須先使用一次，讓所需套件完成下載與快取。離線時後端模式無法使用；清除瀏覽器資料後需重新下載。</p><div class="status" id="pwa-status" role="status" aria-live="polite">正在確認 App 與離線快取設定…</div></div>
+    <div class="it-content"><p class="desc">電腦 Chrome／Edge 或 Android：使用瀏覽器選單的「安裝應用程式」，或上方出現的「安裝 App」按鈕。iPhone／iPad：在 Safari 分享選單選擇「加入主畫面」。</p><p class="desc">安裝不會自動進行，也不會隨開機執行。先連線開啟網站；OCR、Excel、解除保護與無損壓縮須先使用一次，讓所需套件完成下載與快取。離線時後端模式無法使用；清除瀏覽器資料後需重新下載。</p><button type="button" class="run" id="btn-offline-check">檢查離線資源</button><div id="offline-resources" aria-live="polite"></div><div class="status" id="pwa-status" role="status" aria-live="polite">正在確認 App 與離線快取設定…</div></div>
   </details>
 
   <!-- IT 維護設定，預設收合 -->
@@ -1292,22 +1299,23 @@ function updateWordOptions(){
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
   document.getElementById('word-preserve-field').hidden=mode==='layout';
   document.getElementById('ocr-output-field').hidden=document.getElementById('word-preserve').checked;
-  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；指定頁面會先本機擷取副本再上傳。不含 OCR，免費服務可能需等待喚醒。取消會停止本機等待與下載，伺服器已收到的工作仍可能執行到自動清理。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。文字顏色依渲染畫面估算，漸層、透明或複雜背景可能失準。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；指定頁面會先本機擷取副本再上傳。不含 OCR，免費服務可能需等待喚醒。取消會停止本機等待與下載，伺服器已收到的工作仍可能執行到自動清理。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
   document.getElementById('word-fast').checked=!document.getElementById('word-preserve').checked;
   document.getElementById('word-look').checked=document.getElementById('word-preserve').checked;
   document.getElementById('word-fast').disabled=document.getElementById('word-look').disabled=wordBusy;
   wordButton.disabled=wordBusy||!docxFile||(wordMode.value==='auto'&&!wordChoice);
+  document.getElementById('btn-word-trial').disabled=wordButton.disabled||mode==='layout';
 }
 document.getElementById('docx-pages').onchange=()=>{if(!wordBusy&&docxFile)chooseWordFile(docxFile);};
 document.getElementById('word-preserve').onchange=updateWordOptions;
-for(const id of ['word-fast','word-look'])document.getElementById(id).onchange=()=>{if(wordBusy)return;document.getElementById('word-preserve').checked=id==='word-look';if(id==='word-fast')document.getElementById('ocr-output-mode').value='text';OCRWord.clearReview?.();updateWordOptions();};
-wordMode.onchange=()=>{OCRWord.clearReview?.();updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
+for(const id of ['word-fast','word-look'])document.getElementById(id).onchange=()=>{if(wordBusy)return;document.getElementById('word-preserve').checked=id==='word-look';if(id==='word-fast')document.getElementById('ocr-output-mode').value='text';window.WordTrial?.clear();OCRWord.clearReview?.();updateWordOptions();};
+wordMode.onchange=()=>{window.WordTrial?.clear();OCRWord.clearReview?.();updateWordOptions();if(docxFile)setStatus('status-docx','已選擇：'+wordMode.selectedOptions[0].textContent);};
 function chooseWordFile(file){
   if(wordBusy||!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
   if(file.size>50*1024*1024){setStatus('status-docx','請使用 50 MB 以下的 PDF',true);return;}
-  OCRWord.clearReview?.();
+  OCRWord.clearReview?.();window.WordTrial?.clear();
   const selection=++wordSelection;docxFile=file;wordChoice=null;
-  renderList('list-docx',[file],()=>{if(wordBusy)return;OCRWord.clearReview?.();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
+  renderList('list-docx',[file],()=>{if(wordBusy)return;OCRWord.clearReview?.();window.WordTrial?.clear();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
   setStatus('status-docx','正在檢查文字層…');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();
   const select=mode=>{if(wordBusy)return;wordMode.value=mode;updateWordOptions();wordButton.focus();};
   wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr'),document.getElementById('docx-pages').value).then(result=>{
@@ -1318,16 +1326,16 @@ function chooseWordFile(file){
 }
 window.chooseWordFile=chooseWordFile;
 setupDropzone('dz-docx','input-docx',files=>chooseWordFile(files[0]));
-wordButton.onclick=async()=>{
+async function convertWord(trial=false){
   if(wordBusy||!docxFile)return;
   const mode=effectiveWordMode();if(!mode)return;
-  OCRWord.clearReview?.();wordBusy=true;const selected=docxFile;updateWordOptions();
+  OCRWord.clearReview?.();window.WordTrial?.clear();wordBusy=true;const selected=docxFile;updateWordOptions();
   wordMode.disabled=true;document.getElementById('word-preserve').disabled=true;document.getElementById('input-docx').disabled=true;
   PdfGuide.clear(document.getElementById('guide-docx'));document.getElementById('progress-ocr-word').hidden=true;
   for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}
   try{
-    if(mode==='ocr')await OCRWord.runFile(selected,{preferNative:wordMode.value==='auto'});
-    else if(mode==='local')await LocalConvert.run('docx',selected,document.getElementById('docx-pages').value);
+    if(mode==='ocr')await OCRWord.runFile(selected,{preferNative:wordMode.value==='auto',trial});
+    else if(mode==='local')await LocalConvert.run('docx',selected,document.getElementById('docx-pages').value,{trial});
     else{
       let upload=selected;const spec=document.getElementById('docx-pages').value.trim();
       if(spec){const source=await PDFDocument.load(await selected.arrayBuffer()),numbers=AppCore.pages(spec,source.getPageCount()),out=await PDFDocument.create();
@@ -1337,6 +1345,9 @@ wordButton.onclick=async()=>{
     }
   }finally{wordBusy=false;wordMode.disabled=false;document.getElementById('word-preserve').disabled=false;document.getElementById('input-docx').disabled=false;updateWordOptions();}
 };
+
+wordButton.onclick=()=>convertWord();
+document.getElementById('btn-word-trial').onclick=()=>convertWord(true);
 
 /* ---------- 10: PDF -> Excel ---------- */
 let xlsxFile = null;
@@ -1991,7 +2002,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v12');
+      const cache=await caches.open('person-convert-pwa-v13');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

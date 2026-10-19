@@ -1,0 +1,7 @@
+const assert=require('assert'),color=require('../frontend/text-color.js'),layout=require('../frontend/ocr-layout.js'),trial=require('../frontend/word-trial.js'),ocr=require('../frontend/ocr-word.js');
+function sample(ink,bg=[255,255,255]){const width=40,height=24,d=new Uint8ClampedArray(width*height*4);for(let y=0;y<height;y++)for(let x=0;x<width;x++){const c=x>8&&x<30&&y>6&&y<18?ink:bg;d.set([...c,255],(y*width+x)*4);}return color.estimate(d,width,height);}
+assert.equal(sample([210,20,40]),'D21428');assert.equal(sample([15,70,200]),'0F46C8');assert.equal(sample([255,255,255],[20,20,20]),'FFFFFF');assert.equal(sample([255,255,255]),null);assert.equal(color.sample({}, {x0:NaN,x1:2,y0:0,y1:2}),null);
+const page={width:600,height:800,scale:1,lines:[{text:'red',fontSize:12,color:'D21428',bbox:{x0:10,y0:10,x1:40,y1:25}}]};assert(layout.documentXml([page]).includes('<w:color w:val="D21428"/>'));page.lines[0].color='bad"/>';assert(!layout.documentXml([page]).includes('<w:color'));
+const b=trial.contextBox({x0:0,y0:0,x1:2000,y1:400},2000,400);assert(b.width<=720&&b.height<=180&&b.x===0&&b.y===0);assert.equal(trial.contextBox({x0:4,x1:2,y0:0,y1:4},10,10),null);
+assert(ocr.reviewPriority('12.5')<ocr.reviewPriority('ordinary'));assert(ocr.reviewPriority('mg')<ocr.reviewPriority('ordinary'));assert(ocr.reviewPriority('Person')<ocr.reviewPriority('ordinary'));
+console.log('Solid/inverse text colours, invalid colour escaping, contextual crop budgets and numeric/name review priority passed');

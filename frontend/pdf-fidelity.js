@@ -112,6 +112,7 @@
   }
   async function nativePage(page,canvas,scale,signal){
     const result=await nativeText(page);if(!result)return null;
+    for(const line of result.lines)line.color=root.TextColor?.sample(canvas,line.bbox,scale);
     result.image=await graphics(page,canvas,scale,result.lines,true,signal);return result;
   }
   const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions,footerLines};

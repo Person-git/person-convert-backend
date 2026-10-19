@@ -14,10 +14,11 @@
       const text=word.text?.trim(),confidence=word.confidence;
       if(!text||!/[\p{L}\p{N}]/u.test(text)||!Number.isFinite(confidence)||confidence>=80)continue;
       const identity=key(word.bbox)+'|'+text;if(seen.has(identity))continue;seen.add(identity);
-      items.push({page,text:text.slice(0,120),confidence:Math.max(0,Math.min(100,Math.round(confidence))),position:word.bbox&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:retained.get(key(word.bbox))||null,bbox:word.bbox?{...word.bbox}:null});
+      items.push({page,text:text.slice(0,120),confidence:Math.max(0,Math.min(100,Math.round(confidence))),position:word.bbox&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:retained.get(key(word.bbox))||null,bbox:word.bbox?{...word.bbox}:null,contextBox:line.bbox?{...line.bbox}:word.bbox?{...word.bbox}:null,contextText:(line.text||line.words?.map(w=>w.text).join(" ")||text).slice(0,400)});
     }
     return items;
   }
+  function reviewPriority(text){return /\d|^(?:mg|kg|mm|cm|ml|mL|µg|μg|mmHg|kPa|°C|%)$/i.test(text)?0:/^[A-Z][A-Za-z-]{2,}$/.test(text)?1:2;}
   function reviewText(review){
     return ['OCR 校對清單',`共 ${review.total} 個低信心字詞；列出 ${review.items.length} 個。`, `OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`, '信心分數不是正確率；未標示不代表正確，數字、單位與專有名詞仍需核對。',...review.items.map(r=>`第 ${r.page} 頁 · 距頂端 ${r.position??'?'}% · 信心 ${r.confidence}/100 · ${r.text} · ${r.retained?`${r.retained}，保留原圖不可編輯`:'文字輸出，請核對'}`)].join('\n');
   }
@@ -33,13 +34,13 @@
     const list=document.getElementById('ocr-review-list');list.replaceChildren();
     document.getElementById('ocr-review-summary').textContent=review.total?`建議校對 ${review.total} 個字詞（列出 ${review.items.length} 個）`:review.unavailable?'OCR 校對清單：部分頁面未取得信心資料':review.pages?'OCR 校對清單：未偵測到低信心字詞':'本次使用原文字層，未執行 OCR 校對';
     document.getElementById('ocr-review-coverage').textContent=`OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`;
-    for(const item of review.items){
+    for(const item of [...review.items].sort((a,b)=>reviewPriority(a.text)-reviewPriority(b.text)||a.confidence-b.confidence)){
       const row=document.createElement('li'),location=document.createElement('span'),word=document.createElement('mark'),note=document.createElement('span');
       location.textContent=`第 ${item.page} 頁 · 距頂端 ${item.position??'?'}% · `;
       word.textContent=item.text;
       note.textContent=` · 信心 ${item.confidence}/100${item.retained?` · ${item.retained}，保留原圖不可編輯`:''}`;
       row.append(location,word,note);
-      if(item.image){const details=document.createElement('details'),summary=document.createElement('summary'),image=document.createElement('img');summary.textContent='查看原圖字詞';image.className='ocr-source';image.src=item.image;image.alt=`第 ${item.page} 頁原圖字詞局部`;image.loading='lazy';details.append(summary,image);row.append(details);}list.appendChild(row);
+      if(item.image){const details=document.createElement('details'),summary=document.createElement('summary'),image=document.createElement('img');summary.textContent='查看原圖與上下文';image.className='ocr-source';image.src=item.image;image.alt=`第 ${item.page} 頁原圖字詞局部`;image.loading='lazy';details.append(summary,image);if(item.contextImage){const context=document.createElement('img');context.src=item.contextImage;context.alt=`第 ${item.page} 頁同列上下文`;context.className='review-context';context.loading='lazy';details.append(context);}const contextText=document.createElement('p');contextText.textContent='同列辨識（仍可能有誤）：'+(item.contextText||item.text);details.append(contextText);row.append(details);}list.appendChild(row);
     }
     document.getElementById('btn-review-download').onclick=()=>{
       const url=URL.createObjectURL(new Blob([reviewText(review)],{type:'text/plain;charset=utf-8'})),link=document.createElement('a');
@@ -134,6 +135,7 @@
             const box=root.WorkspaceTools.cropBox(item.bbox,canvas.width,canvas.height);if(!box)continue;
             const crop=createCanvas();try{crop.width=box.width;crop.height=box.height;crop.getContext('2d').drawImage(canvas,box.x,box.y,box.w,box.h,0,0,box.width,box.height);const image=crop.toDataURL('image/png');if((review.imageBytes||0)+image.length*2<=2*1024*1024){item.image=image;review.imageBytes=(review.imageBytes||0)+image.length*2;}}finally{crop.width=crop.height=0;}
           }}
+          if(typeof document!=='undefined'&&root.WordTrial){for(const item of kept){if((review.imageBytes||0)>=2*1024*1024)break;const box=root.WordTrial.contextBox(item.contextBox,canvas.width,canvas.height);if(!box)continue;const crop=createCanvas();try{crop.width=box.width;crop.height=box.height;crop.getContext('2d').drawImage(canvas,box.x,box.y,box.w,box.h,0,0,box.width,box.height);const image=crop.toDataURL('image/png');if((review.imageBytes||0)+image.length*2<=2*1024*1024){item.contextImage=image;review.imageBytes=(review.imageBytes||0)+image.length*2;}}finally{crop.width=crop.height=0;}}}
           review.items.push(...kept);
         }
         onPage(index+1,numbers.length,'done',0,number);
@@ -185,7 +187,7 @@
         const abortPdf=()=>{void loadingTask.destroy();};
         signal.addEventListener('abort',abortPdf,{once:true});
         try{pdf=await abortable(loadingTask.promise,signal);}finally{signal.removeEventListener('abort',abortPdf);}
-        const numbers=root.AppCore.pages(document.getElementById('docx-pages').value,pdf.numPages);total=numbers.length;
+        const allNumbers=root.AppCore.pages(document.getElementById('docx-pages').value,pdf.numPages),numbers=options.trial?allNumbers.slice(0,1):allNumbers;total=numbers.length;
         phase=`載入${label} OCR（首次使用需下載語言資料）`;update();
         await abortable(loadOcr(),signal);checkAbort(signal);
         const workerPromise=root.Tesseract.createWorker(languages,1,{...OCR_OPTIONS,logger:entry=>{
@@ -211,9 +213,9 @@
         markStage('docx');root.AppTasks?.phase('產生 Word');phase='辨識完成，產生可編輯 Word';bar.removeAttribute('value');update();
         const blob=await abortable(createDocx(texts,root.JSZip,layout),signal);checkAbort(signal);
         markStage(null);
-        root.AppTasks?.check();const url=URL.createObjectURL(blob),link=document.createElement('a');
+        root.AppTasks?.check();if(options.trial){await root.WordTrial.show(selected,numbers[0],texts[0],layout,blob);}else{const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':layout?'-ocr-layout.docx':'-ocr.docx');
-        document.body.appendChild(link);link.click();link.remove();root.AppTasks?.downloaded();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        document.body.appendChild(link);link.click();link.remove();root.AppTasks?.downloaded();setTimeout(()=>URL.revokeObjectURL(url),1000);}
         showReview(review,selected.name);
         const styleTotals=texts.reduce((sum,page)=>{if(page.styleStats)for(const key of ['matched','uncertain','inherited','bold','italic'])sum[key]+=page.styleStats[key];return sum;},{matched:0,uncertain:0,inherited:0,bold:0,italic:0});
         const styleNote=layout&&texts.some(page=>page.styleStats)?`；視覺比對 ${styleTotals.matched} 詞、同列推估 ${styleTotals.inherited} 詞（粗體 ${styleTotals.bold}、斜體 ${styleTotals.italic}），${styleTotals.uncertain} 詞採一般替代樣式，請校對`:'';
@@ -231,7 +233,7 @@
       }
     };
   }
-  const api={escapeXml,documentXml,createDocx,recognizePages,abortable,reviewWords,reviewText,clearReview};
+  const api={escapeXml,documentXml,createDocx,recognizePages,abortable,reviewWords,reviewText,clearReview,reviewPriority};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else{root.OCRWord=api;document.addEventListener('DOMContentLoaded',init,{once:true});}
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -15,7 +15,7 @@ function cropBox(b,width,height){
  if(right<=x||bottom<=y)return null;const w=right-x,h=bottom-y,scale=Math.min(1,360/w,90/h);return {x,y,w,h,width:Math.max(1,Math.ceil(w*scale)),height:Math.max(1,Math.ceil(h*scale))};
 }
 function previewRows(rows){return rows.slice(0,40).map(row=>Array.from({length:Math.min(20,row.length)},(_,i)=>String(row[i]??'').slice(0,500)));}
-function newerVersion(value,current=12){const match=String(value).match(/^person-convert-pwa-v(\d+)$/);return !!match&&Number(match[1])>current;}
+function newerVersion(value,current=13){const match=String(value).match(/^person-convert-pwa-v(\d+)$/);return !!match&&Number(match[1])>current;}
 if(typeof module!=='undefined'&&module.exports){module.exports={PagePlan,cropBox,previewRows,newerVersion};return;}
 root.WorkspaceTools={cropBox,previewRows};
 const $=id=>document.getElementById(id),button=(text,action)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>{if(!root.AppTasks.busy)action();};return b;};
