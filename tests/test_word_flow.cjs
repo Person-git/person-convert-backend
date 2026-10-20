@@ -25,7 +25,7 @@ function file(name,kind){return {name:name+'.pdf',type:'application/pdf',size:10
   const running=button.onclick();assert(mode.disabled);assert(el('word-preserve').disabled);choose(file('ignored','text'));remove();await button.onclick();assert.equal(calls.filter(c=>c[0]==='held').length,1);finish();await running;assert(!mode.disabled);assert(!el('word-preserve').disabled);
   assert(!el('word-fast').disabled);el('word-fast').onchange();assert(!el('word-preserve').checked);assert.equal(el('ocr-output-mode').value,'text');
   remove();assert(button.disabled);assert.equal(el('list-docx').children.length,0);
-  const numbers=[...html.matchAll(/class="idx">(\d+) \//g)].map(m=>Number(m[1]));assert.deepEqual(numbers,Array.from({length:14},(_,i)=>i+1));
+  const numbers=[...html.matchAll(/class="idx">(\d+) \//g)].map(m=>Number(m[1]));assert.deepEqual(numbers,Array.from({length:15},(_,i)=>i+1));
   assert(!html.includes('id="input-ocr-word"'));assert(!html.includes('id="btn-ocr-word"'));
   console.log('Unified Word routing, manual override, stale inspection, busy lock, removal and consecutive numbering passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
