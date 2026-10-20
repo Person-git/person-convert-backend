@@ -13,21 +13,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=16"></script>
-<script src="lazy-pdf.js?v=16"></script>
-<script src="workspace-tools.js?v=16"></script>
-<script src="word-trial.js?v=16"></script>
-<script src="text-color.js?v=16"></script>
-<script src="page-structure.js?v=16"></script>
-<script src="ocr-layout.js?v=16"></script>
-<script src="ocr-style.js?v=16"></script>
-<script src="ocr-flow.js?v=16"></script>
-<script src="pdf-fidelity.js?v=16"></script>
-<script src="pdf-guide.js?v=16"></script>
-<script src="ocr-word.js?v=16"></script>
-<script src="local-convert.js?v=16"></script>
-<script src="protect-pdf.js?v=16"></script>
-<script src="local-compress.js?v=16"></script>
+<script src="app-core.js?v=17"></script>
+<script src="lazy-pdf.js?v=17"></script>
+<script src="workspace-tools.js?v=17"></script>
+<script src="word-trial.js?v=17"></script>
+<script src="text-color.js?v=17"></script>
+<script src="page-structure.js?v=17"></script>
+<script src="ocr-layout.js?v=17"></script>
+<script src="ocr-style.js?v=17"></script>
+<script src="ocr-flow.js?v=17"></script>
+<script src="pdf-fidelity.js?v=17"></script>
+<script src="pdf-guide.js?v=17"></script>
+<script src="ocr-word.js?v=17"></script>
+<script src="local-convert.js?v=17"></script>
+<script src="protect-pdf.js?v=17"></script>
+<script src="local-compress.js?v=17"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -470,11 +470,22 @@
     <div class="dropzone" id="dz-security"><input type="file" id="input-security" accept="application/pdf">拖曳 PDF 到這裡，或點擊選擇檔案</div><div class="filelist" id="list-security"></div>
     <div class="security-tabs" role="tablist" aria-label="PDF 密碼操作"><button type="button" role="tab" id="security-encrypt-tab" aria-controls="security-encrypt-panel" aria-selected="true">加密／更換密碼</button><button type="button" role="tab" id="security-unlock-tab" aria-controls="security-unlock-panel" aria-selected="false" tabindex="-1">解除保護</button></div>
     <div id="security-encrypt-panel" role="tabpanel" aria-labelledby="security-encrypt-tab">
-      <p class="desc">設定新的開啟密碼，下載 AES-256 加密副本。</p>
-      <div class="row"><div class="field" style="width:280px"><label for="protect-password">新的開啟密碼（至少 8 個字元）</label><input type="password" id="protect-password" autocomplete="new-password" style="width:100%" placeholder="建議使用較長且不易猜測的密碼"></div><div class="field" style="width:280px"><label for="protect-confirm">再次輸入新密碼</label><input type="password" id="protect-confirm" autocomplete="new-password" style="width:100%"></div></div>
+      <p class="desc">設定開啟密碼或操作權限，下載 AES-256 保護副本。</p>
+      <p><label><input type="checkbox" id="protect-require-open" checked> 開啟 PDF 時需要密碼</label></p><div class="row"><div class="field" style="width:280px"><label for="protect-password">新的開啟密碼（至少 8 個字元）</label><input type="password" id="protect-password" autocomplete="new-password" style="width:100%" placeholder="建議使用較長且不易猜測的密碼"></div><div class="field" style="width:280px"><label for="protect-confirm">再次輸入新密碼</label><input type="password" id="protect-confirm" autocomplete="new-password" style="width:100%"></div></div>
+      <div style="border:1px solid #d6c7e8;border-radius:10px;padding:16px;margin:16px 0;background:#faf7fd">
+        <label><input type="checkbox" id="protect-restrict"> 設定操作權限（限制列印、複製或編輯）</label>
+        <div id="protect-permissions" hidden>
+          <p class="desc" style="margin-top:12px">勾選代表允許；未勾選代表限制。不設開啟密碼時，任何人仍可閱讀。</p>
+          <div class="row" role="group" aria-label="允許的操作" style="gap:14px;flex-wrap:wrap">
+            <label><input type="checkbox" id="protect-allow-print"> 列印</label><label><input type="checkbox" id="protect-allow-copy"> 複製文字／圖片</label><label><input type="checkbox" id="protect-allow-modify"> 修改內容</label><label><input type="checkbox" id="protect-allow-annotate"> 註解</label><label><input type="checkbox" id="protect-allow-form"> 填寫表單</label><label><input type="checkbox" id="protect-allow-assemble"> 擷取／重排頁面</label>
+          </div>
+          <div class="row" style="margin-top:14px"><div class="field" style="width:280px"><label for="protect-owner">權限管理密碼（至少 8 個字元）</label><input type="password" id="protect-owner" autocomplete="new-password" style="width:100%"></div><div class="field" style="width:280px"><label for="protect-owner-confirm">再次輸入權限管理密碼</label><input type="password" id="protect-owner-confirm" autocomplete="new-password" style="width:100%"></div></div>
+          <p class="desc">權限管理密碼須與開啟密碼不同，請自行保存。限制由閱讀器配合遵守，部分軟體可能忽略，不能防止截圖；輔助閱讀不受限制。</p>
+        </div>
+      </div>
       <details id="security-source-details"><summary>原 PDF 已有開啟密碼？</summary><div class="field" style="max-width:320px;margin-top:12px"><label for="protect-source-password">原 PDF 開啟密碼（沒有則留空）</label><input type="password" id="protect-source-password" autocomplete="off" style="width:100%"></div></details>
-      <div class="row"><button class="run" id="btn-protect" disabled>加密並下載副本</button></div>
-      <p class="desc">平台不儲存密碼，處理後會清除欄位；請自行妥善保存。此功能設定開啟密碼，不另限制列印／複製。</p>
+      <div class="row"><button class="run" id="btn-protect" disabled>套用保護並下載</button></div>
+      <p class="desc">平台不儲存密碼，處理後會清除欄位；請自行妥善保存。可同時設定開啟密碼與操作權限；不需要密碼即可閱讀的文件，仍會以 PDF 權限保護格式儲存。</p>
     </div>
     <div id="security-unlock-panel" role="tabpanel" aria-labelledby="security-unlock-tab" hidden>
       <p class="desc">另存未加密副本，保留文字、向量與頁面。無開啟密碼的權限保護檔可直接處理；有開啟密碼則需輸入正確密碼。</p>
@@ -2016,7 +2027,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v16');
+      const cache=await caches.open('person-convert-pwa-v17');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
