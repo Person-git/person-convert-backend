@@ -64,7 +64,7 @@ async function exercise(){
   const statusContext={AppCore:require('../frontend/app-core.js'),AppTasks:{observe(){}},document:{getElementById:()=>statusElement}};
   vm.createContext(statusContext);vm.runInContext(statusSource,statusContext);
   statusContext.setStatus('status-split',"錯誤: Input document to `PDFDocument.load` is encrypted. You can use ignoreEncryption",true);
-  assert(statusElement.textContent.includes('09 解除 PDF 保護'));
+  assert(statusElement.textContent.includes('09 PDF 密碼與保護'));
   assert(!statusElement.textContent.includes('ignoreEncryption'));
   statusContext.setStatus('status-split','錯誤: 頁碼超出範圍',true);
   assert.equal(statusElement.textContent,'錯誤: 頁碼超出範圍');

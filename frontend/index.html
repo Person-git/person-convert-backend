@@ -13,22 +13,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=15"></script>
-<script src="lazy-pdf.js?v=15"></script>
-<script src="workspace-tools.js?v=15"></script>
-<script src="word-trial.js?v=15"></script>
-<script src="text-color.js?v=15"></script>
-<script src="page-structure.js?v=15"></script>
-<script src="ocr-layout.js?v=15"></script>
-<script src="ocr-style.js?v=15"></script>
-<script src="ocr-flow.js?v=15"></script>
-<script src="pdf-fidelity.js?v=15"></script>
-<script src="pdf-guide.js?v=15"></script>
-<script src="ocr-word.js?v=15"></script>
-<script src="local-convert.js?v=15"></script>
-<script src="unlock-pdf.js?v=15"></script>
-<script src="protect-pdf.js?v=15"></script>
-<script src="local-compress.js?v=15"></script>
+<script src="app-core.js?v=16"></script>
+<script src="lazy-pdf.js?v=16"></script>
+<script src="workspace-tools.js?v=16"></script>
+<script src="word-trial.js?v=16"></script>
+<script src="text-color.js?v=16"></script>
+<script src="page-structure.js?v=16"></script>
+<script src="ocr-layout.js?v=16"></script>
+<script src="ocr-style.js?v=16"></script>
+<script src="ocr-flow.js?v=16"></script>
+<script src="pdf-fidelity.js?v=16"></script>
+<script src="pdf-guide.js?v=16"></script>
+<script src="ocr-word.js?v=16"></script>
+<script src="local-convert.js?v=16"></script>
+<script src="protect-pdf.js?v=16"></script>
+<script src="local-compress.js?v=16"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -150,6 +149,8 @@
 
   .trial-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}.trial-grid img{max-width:100%;border:1px solid #d8e0e8;}.trial-page{position:relative;background:white;overflow:hidden;border:1px solid #d8e0e8;}.trial-page>img{display:block;width:100%;border:0;}.trial-line{position:absolute;white-space:pre;line-height:1.1;transform-origin:top left;}.trial-text{white-space:pre-wrap;background:white;padding:16px;max-height:600px;overflow:auto;}.trial-grid>div{min-width:0;}.review-context{max-width:100%;max-height:180px;object-fit:contain;object-position:left;display:block;}.offline-list{padding:0;list-style:none;}.offline-list li{padding:8px;border-bottom:1px solid #dce5ee;}.workspace-nav{position:sticky;top:0;z-index:90;background:#f6f7f9;padding-top:10px;padding-bottom:10px;border-radius:10px;}.sheet{scroll-margin-top:132px;}.task-banner{top:64px;}
   @media(max-width:640px){header{padding:24px 18px;}header h1{font-size:28px;}.hero-subtitle{font-size:16px;}main{padding:0 10px;}.sheet{padding:20px 16px;}.row{align-items:stretch;}.row>.field{width:100%!important;min-width:0;}.field input[type=text],.field select,select{max-width:100%;}.run,.preview-button,.pm-actions button,.pm-card button,.workspace-nav button{min-height:44px;}.row>.run{flex:1;min-width:130px;}.trial-grid{grid-template-columns:1fr;}#thumbs-pm{grid-template-columns:repeat(2,minmax(0,1fr));}.pm-card{width:100%!important;}.pm-card label{min-height:36px;display:flex;gap:6px;align-items:center;}.pm-card input{width:20px;height:20px;}.tool-nav{gap:8px;}.workspace-nav{gap:6px;margin:10px 0;padding:8px 10px;}.workspace-nav button{flex:1;white-space:nowrap;}.sheet{scroll-margin-top:220px;}.task-banner{top:108px;margin:8px 10px;padding:10px;}.sheet-head{flex-wrap:wrap;}#docx-mode{width:100%!important;}}
+
+  .security-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px;}.security-tabs button{border:1px solid #d6c7e8;border-radius:9px;background:#faf7fd;color:#67428a;padding:10px 16px;font:inherit;font-size:13px;cursor:pointer;min-height:44px;}.security-tabs button[aria-selected=true]{background:#8057b1;color:white;border-color:#8057b1;}.security-tabs button:focus-visible{outline:3px solid #b7a2d4;outline-offset:3px;}#security-encrypt-panel[hidden],#security-unlock-panel[hidden]{display:none;}@media(max-width:640px){.security-tabs button{flex:1;}}
 </style>
 </head>
 <body>
@@ -160,7 +161,7 @@
   <h1>博申轉檔平台<span class="hero-subtitle">文件處理，簡單一點。</span></h1>
   <p>PDF 瀏覽標註、格式轉換、合併分割與壓縮 —— 大部分功能在瀏覽器端完成不會上傳,文字轉檔與無損壓縮也可本機處理，進階模式可選後端。</p>
   <nav class="tool-nav" aria-label="常用工具">
-    <a href="#page-manager">頁面管理</a><a href="#unlock-section">解除 PDF 保護</a><a href="#protect-section">PDF 加密</a><a href="#convert-word">PDF 轉 Word（含 OCR）</a><a href="#backend-settings">進階設定</a><button type="button" id="install-app" hidden>安裝 App</button><a href="#pwa-help">安裝說明</a>
+    <a href="#page-manager">頁面管理</a><a href="#pdf-security">PDF 密碼與保護</a><a href="#convert-word">PDF 轉 Word（含 OCR）</a><a href="#backend-settings">進階設定</a><button type="button" id="install-app" hidden>安裝 App</button><a href="#pwa-help">安裝說明</a>
   </nav>
 </header>
 
@@ -463,13 +464,24 @@
     <div class="status" id="status-rot"></div>
   </section>
 
-  <section class="sheet" id="unlock-section">
-    <div class="sheet-head"><div><div class="idx">09 / PDF UNLOCK</div><h2>解除 PDF 保護</h2><div class="desc">另存未加密的副本，保留文字、向量與頁面。無開啟密碼的權限保護檔可直接處理；有開啟密碼則需輸入正確密碼。文件與密碼不上傳。</div></div></div>
-    <div class="dropzone" id="dz-unlock"><input type="file" id="input-unlock" accept="application/pdf">拖曳 PDF 到這裡，或點擊選擇檔案</div>
-    <div class="filelist" id="list-unlock"></div>
-    <div class="row"><div class="field" style="width:280px"><label for="unlock-password">PDF 開啟密碼（無密碼可留空）</label><input type="password" id="unlock-password" autocomplete="off" style="width:100%" placeholder="請輸入已知的開啟密碼"></div><button class="run" id="btn-unlock" disabled>解除保護並下載</button><button class="run" id="btn-unlock-cancel" disabled>取消</button></div>
-    <div class="desc" style="margin-top:12px">原檔不會被修改；重新儲存會使原數位簽章失效。首次使用需下載引擎。限 50 MB，支援標準 PDF 密碼加密，不支援憑證或 DRM 保護。</div>
-    <div class="status" id="status-unlock" role="status" aria-live="polite"></div>
+  <section class="sheet" id="pdf-security" style="--accent:#8057b1;--accent-bg:#f5f0fb">
+    <span id="unlock-section" aria-hidden="true"></span><span id="protect-section" aria-hidden="true"></span>
+    <div class="sheet-head"><div><div class="idx">09 / PDF SECURITY</div><h2>PDF 密碼與保護</h2><div class="desc">設定、更換開啟密碼，或另存解除保護副本。共用同一份 PDF，原檔不變；文件與密碼僅在瀏覽器處理。</div></div></div>
+    <div class="dropzone" id="dz-security"><input type="file" id="input-security" accept="application/pdf">拖曳 PDF 到這裡，或點擊選擇檔案</div><div class="filelist" id="list-security"></div>
+    <div class="security-tabs" role="tablist" aria-label="PDF 密碼操作"><button type="button" role="tab" id="security-encrypt-tab" aria-controls="security-encrypt-panel" aria-selected="true">加密／更換密碼</button><button type="button" role="tab" id="security-unlock-tab" aria-controls="security-unlock-panel" aria-selected="false" tabindex="-1">解除保護</button></div>
+    <div id="security-encrypt-panel" role="tabpanel" aria-labelledby="security-encrypt-tab">
+      <p class="desc">設定新的開啟密碼，下載 AES-256 加密副本。</p>
+      <div class="row"><div class="field" style="width:280px"><label for="protect-password">新的開啟密碼（至少 8 個字元）</label><input type="password" id="protect-password" autocomplete="new-password" style="width:100%" placeholder="建議使用較長且不易猜測的密碼"></div><div class="field" style="width:280px"><label for="protect-confirm">再次輸入新密碼</label><input type="password" id="protect-confirm" autocomplete="new-password" style="width:100%"></div></div>
+      <details id="security-source-details"><summary>原 PDF 已有開啟密碼？</summary><div class="field" style="max-width:320px;margin-top:12px"><label for="protect-source-password">原 PDF 開啟密碼（沒有則留空）</label><input type="password" id="protect-source-password" autocomplete="off" style="width:100%"></div></details>
+      <div class="row"><button class="run" id="btn-protect" disabled>加密並下載副本</button></div>
+      <p class="desc">平台不儲存密碼，處理後會清除欄位；請自行妥善保存。此功能設定開啟密碼，不另限制列印／複製。</p>
+    </div>
+    <div id="security-unlock-panel" role="tabpanel" aria-labelledby="security-unlock-tab" hidden>
+      <p class="desc">另存未加密副本，保留文字、向量與頁面。無開啟密碼的權限保護檔可直接處理；有開啟密碼則需輸入正確密碼。</p>
+      <div class="row"><div class="field" style="width:280px"><label for="unlock-password">PDF 開啟密碼（無密碼可留空）</label><input type="password" id="unlock-password" autocomplete="off" style="width:100%" placeholder="請輸入已知的開啟密碼" disabled></div><button class="run" id="btn-unlock" disabled>解除保護並下載</button></div>
+    </div>
+    <div class="status" id="status-security" role="status" aria-live="polite"></div>
+    <p class="desc" style="margin-top:12px">切換分頁時保留已選 PDF，並清除所有密碼欄位。重新儲存會使原數位簽章失效；不支援憑證或 DRM，限 50 MB。首次使用需下載引擎。</p>
   </section>
 
   <!-- PDF轉Word：共用選檔、自動判斷與 OCR -->
@@ -629,15 +641,6 @@
       附註:「平滑」用瀏覽器內建的高品質縮放演算法,適合相片,但截圖或文字放大後邊緣會變模糊(這是演算法的設計目的,不是bug)。「銳利」不做平滑處理,直接放大像素,邊緣保持銳利不糊,適合截圖/文字/UI畫面,代價是放大倍率高時會看起來有顆粒感、不夠細緻。兩種都不是 AI 補細節,原本沒有的畫面資訊沒辦法真的補出來。
     </div>
     <div class="status" id="status-upscale"></div>
-  </section>
-
-  <section class="sheet" id="protect-section" style="--accent:#8057b1;--accent-bg:#f5f0fb">
-    <div class="sheet-head"><div><div class="idx">15 / PDF LOCK</div><h2>PDF 加密保護</h2><div class="desc">設定開啟密碼，另存 AES-256 加密副本。原檔不變，檔案與密碼僅在瀏覽器處理。</div></div></div>
-    <div class="dropzone" id="dz-protect"><input type="file" id="input-protect" accept="application/pdf">拖曳 PDF 到這裡，或點擊選擇檔案</div><div class="filelist" id="list-protect"></div>
-    <div class="row"><div class="field" style="width:280px"><label for="protect-password">新的開啟密碼（至少 8 個字元）</label><input type="password" id="protect-password" autocomplete="new-password" style="width:100%" placeholder="建議使用較長且不易猜測的密碼"></div><div class="field" style="width:280px"><label for="protect-confirm">再次輸入新密碼</label><input type="password" id="protect-confirm" autocomplete="new-password" style="width:100%"></div></div>
-    <details><summary>原 PDF 已有開啟密碼？</summary><div class="field" style="max-width:320px;margin-top:12px"><label for="protect-source-password">原 PDF 開啟密碼（沒有則留空）</label><input type="password" id="protect-source-password" autocomplete="off" style="width:100%"></div></details>
-    <div class="row"><button class="run" id="btn-protect" disabled>加密並下載副本</button></div><div class="status" id="status-protect" role="status" aria-live="polite"></div>
-    <p class="desc">密碼不會儲存，處理後會清除欄位；請自行妥善保存。此功能保護「開啟檔案」，不另限制列印／複製。重新儲存會使原數位簽章失效；不支援憑證或 DRM，限 50 MB。首次使用需下載引擎。</p>
   </section>
 
   <details class="sheet it-settings" id="pwa-help">
@@ -2013,7 +2016,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v15');
+      const cache=await caches.open('person-convert-pwa-v16');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

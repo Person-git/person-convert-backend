@@ -30,7 +30,7 @@
       const actions=document.createElement('div');actions.className='row';
       for(const [label,action] of [['改用直接擷取文字',useWord],['改用 OCR',useOcr]]){const b=document.createElement('button');b.className='run';b.type='button';b.textContent=label;b.onclick=action;actions.append(b);}panel.append(actions);
       return result;
-    }catch(error){if(!state.cancelled)panel.textContent=error.name==='PasswordException'?'此 PDF 需要開啟密碼，請先使用「09 解除 PDF 保護」，再重新選檔。':root.AppCore.errorMessage(error);}
+    }catch(error){if(!state.cancelled)panel.textContent=error.name==='PasswordException'?'此 PDF 需要開啟密碼，請先使用「09 PDF 密碼與保護」的「解除保護」，再重新選檔。':root.AppCore.errorMessage(error);}
     finally{if(state.task)await state.task.destroy().catch(()=>{});}
   }
   if(typeof module!=='undefined')module.exports={classify};else root.PdfGuide={inspect,clear};

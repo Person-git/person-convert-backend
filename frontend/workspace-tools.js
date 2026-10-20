@@ -15,7 +15,7 @@ function cropBox(b,width,height){
  if(right<=x||bottom<=y)return null;const w=right-x,h=bottom-y,scale=Math.min(1,360/w,90/h);return {x,y,w,h,width:Math.max(1,Math.ceil(w*scale)),height:Math.max(1,Math.ceil(h*scale))};
 }
 function previewRows(rows){return rows.slice(0,40).map(row=>Array.from({length:Math.min(20,row.length)},(_,i)=>String(row[i]??'').slice(0,500)));}
-function newerVersion(value,current=15){const match=String(value).match(/^person-convert-pwa-v(\d+)$/);return !!match&&Number(match[1])>current;}
+function newerVersion(value,current=16){const match=String(value).match(/^person-convert-pwa-v(\d+)$/);return !!match&&Number(match[1])>current;}
 if(typeof module!=='undefined'&&module.exports){module.exports={PagePlan,cropBox,previewRows,newerVersion};return;}
 root.WorkspaceTools={cropBox,previewRows};
 const $=id=>document.getElementById(id),button=(text,action)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>{if(!root.AppTasks.busy)action();};return b;};
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const excelPanel=document.createElement('div');excelPanel.id='excel-preview';excelPanel.className='preview-panel';excelPanel.hidden=true;$('status-xlsx').before(excelPanel);$('xlsx-pages').addEventListener('input',()=>excelPanel.hidden=true);
  const compareButton=button('壓縮前後畫質抽查',()=>{});compareButton.id='btn-compression-preview';compareButton.disabled=true;compareButton.onclick=compressionPreview;$('btn-compress').after(compareButton);
  const comparison=document.createElement('div');comparison.id='compression-preview';comparison.className='preview-panel';comparison.hidden=true;$('status-compress').before(comparison);
- const groups=['全部工具','頁面整理','格式轉換','標註與保護','圖片工具'],mapping=[3,2,4,1,1,3,3,1,3,2,2,2,1,4,3],sheets=[...document.querySelectorAll('main > section.sheet')].slice(0,15);let category=0;
+ const groups=['全部工具','頁面整理','格式轉換','標註與保護','圖片工具'],mapping=[3,2,4,1,1,3,3,1,3,2,2,2,1,4],sheets=[...document.querySelectorAll('main > section.sheet')].slice(0,14);let category=0;
  const nav=$('workspace-nav');
  function show(index){category=index;for(const [i,section]of sheets.entries())section.hidden=index!==0&&mapping[i]!==index;for(const [i,b]of [...nav.children].entries())b.setAttribute('aria-pressed',String(i===index));}
  groups.forEach((name,i)=>{const b=button(name,()=>show(i));nav.append(b);});show(0);

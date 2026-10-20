@@ -24,8 +24,8 @@ function errorMessage(error){
  const text=String(error?.message||error||'未知錯誤');
  if(error?.name==='AbortError'||error?.name==='RenderingCancelledException')return '已取消，未產生新下載';
  if(/^(新密碼|兩次輸入的新密碼|原 PDF 開啟密碼|加密失敗)/.test(text))return text;
- if(error?.name==='PasswordException'||/password|密碼/i.test(text))return 'PDF 需要正確的開啟密碼。請先使用「09 解除 PDF 保護」，或在頁面管理輸入密碼後重試。';
- if(/EncryptedPDFError|ignoreEncryption|PDFDocument\.load[^\n]*encrypted/i.test(text))return 'PDF 有權限保護。請先使用「09 解除 PDF 保護」取得副本，再重新選檔；有開啟密碼時需輸入正確密碼。';
+ if(error?.name==='PasswordException'||/password|密碼/i.test(text))return 'PDF 需要正確的開啟密碼。請先使用「09 PDF 密碼與保護」的「解除保護」，或在頁面管理輸入密碼後重試。';
+ if(/EncryptedPDFError|ignoreEncryption|PDFDocument\.load[^\n]*encrypted/i.test(text))return 'PDF 有權限保護。請先使用「09 PDF 密碼與保護」的「解除保護」取得副本，再重新選檔；有開啟密碼時需輸入正確密碼。';
  if(/image|jpeg|jpg|png|bitmap/i.test(text)&&/decode|invalid|corrupt|signature|failed|not.*valid/i.test(text))return '圖片無法解碼或內容不完整，請重新另存 PNG／JPG 後重試。';
  if(error?.name==='InvalidPDFException'||/InvalidPDF|invalid pdf|xref|PDF header|trailer|corrupt|無效的 PDF/i.test(text))return 'PDF 結構不完整或已損壞。請確認可正常開啟，重新下載原檔，或從原製作軟體另存 PDF 後重試。';
  if(/memory|allocation|canvas.*(?:size|area)|out of bounds|Invalid array length/i.test(text))return '檔案或圖片尺寸超出可用記憶體。請減少指定頁數、降低解析度，或關閉其他大型工作後重試。';
@@ -97,7 +97,7 @@ else{
  root.AppTasks=tasks;
  const install=()=>{for(const id of ['btn-unlock','btn-protect','btn-img2pdf','btn-p2i','btn-merge','btn-split-range','btn-split-all','btn-split-image','btn-wm','btn-pn','btn-rot','btn-pm','btn-docx','btn-word-trial','btn-offline-prepare','btn-xlsx','btn-svg','btn-compress','btn-upscale','btn-annotate-save','btn-excel-preview','btn-compression-preview']){
    const button=document.getElementById(id),action=button?.onclick;if(action&&button.dataset.taskWrapped!=='1'){button.dataset.taskWrapped='1';button.onclick=()=>tasks.run(button,action);}
-  }for(const id of ['btn-ocr-cancel','btn-unlock-cancel']){const b=document.getElementById(id);if(b&&b.dataset.taskCancel!=='1'){b.dataset.taskCancel='1';b.addEventListener('click',()=>tasks.cancel());}}};
+  }for(const id of ['btn-ocr-cancel']){const b=document.getElementById(id);if(b&&b.dataset.taskCancel!=='1'){b.dataset.taskCancel='1';b.addEventListener('click',()=>tasks.cancel());}}};
  document.addEventListener('DOMContentLoaded',()=>setTimeout(install,0),{once:true});window.addEventListener('load',install,{once:true});
 }
 })(typeof window!=='undefined'?window:globalThis);
