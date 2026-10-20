@@ -13,20 +13,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=13"></script>
-<script src="lazy-pdf.js?v=13"></script>
-<script src="workspace-tools.js?v=13"></script>
-<script src="word-trial.js?v=13"></script>
-<script src="text-color.js?v=13"></script>
-<script src="ocr-layout.js?v=13"></script>
-<script src="ocr-style.js?v=13"></script>
-<script src="ocr-flow.js?v=13"></script>
-<script src="pdf-fidelity.js?v=13"></script>
-<script src="pdf-guide.js?v=13"></script>
-<script src="ocr-word.js?v=13"></script>
-<script src="local-convert.js?v=13"></script>
-<script src="unlock-pdf.js?v=13"></script>
-<script src="local-compress.js?v=13"></script>
+<script src="app-core.js?v=14"></script>
+<script src="lazy-pdf.js?v=14"></script>
+<script src="workspace-tools.js?v=14"></script>
+<script src="word-trial.js?v=14"></script>
+<script src="text-color.js?v=14"></script>
+<script src="page-structure.js?v=14"></script>
+<script src="ocr-layout.js?v=14"></script>
+<script src="ocr-style.js?v=14"></script>
+<script src="ocr-flow.js?v=14"></script>
+<script src="pdf-fidelity.js?v=14"></script>
+<script src="pdf-guide.js?v=14"></script>
+<script src="ocr-word.js?v=14"></script>
+<script src="local-convert.js?v=14"></script>
+<script src="unlock-pdf.js?v=14"></script>
+<script src="local-compress.js?v=14"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -1299,7 +1300,7 @@ function updateWordOptions(){
   document.getElementById('word-ocr-options').hidden=mode!=='ocr';
   document.getElementById('word-preserve-field').hidden=mode==='layout';
   document.getElementById('ocr-output-field').hidden=document.getElementById('word-preserve').checked;
-  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。文字顏色依渲染畫面估算，漸層、透明或複雜背景可能失準。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；指定頁面會先本機擷取副本再上傳。不含 OCR，免費服務可能需等待喚醒。取消會停止本機等待與下載，伺服器已收到的工作仍可能執行到自動清理。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
+  document.getElementById('word-mode-help').textContent=document.getElementById('word-preserve').checked&&mode!=='layout'?'圖片與圖形以整頁點陣圖層保留，文字框可編輯，圖片不能逐張編輯。自動模式有文字層時讀取可取得的字型名稱、字級、粗斜體；OCR 以逐詞視覺比對估計常見字型、字級、粗體與斜體，同列明確一致時補足短詞；以每行一個文字框保留間距，減少擠字。不確定的字型採一般樣式；低信心文字、單獨符號、小圖示及依位置、字級與正文間距判斷的頁尾保留原圖，這些部分不可直接編輯。文字顏色依渲染畫面估算，漸層、透明或複雜背景可能失準。未內嵌字型，電腦缺字型會替代。掃描／輪廓文字只能估計字型，去字遮罩可能影響背景；未辨識文字可能留在圖層而不可編輯，請校對。清楚完整的矩形格線表格會嘗試轉為可編輯 Word 表格（不含合併儲存格、跨頁表格）；未通過檢查仍用原處理方式。單色／淺色底紋以鄰近底色去字，背景不均的字詞保留原圖。複雜表格不還原。字型比對較費時，完成後會列出各階段耗時。':mode==='layout'?'此模式會將檔案上傳 Render，適合有文字層的 PDF；指定頁面會先本機擷取副本再上傳。不含 OCR，免費服務可能需等待喚醒。取消會停止本機等待與下載，伺服器已收到的工作仍可能執行到自動清理。':mode==='ocr'?'OCR 首次使用需下載語言資料。文件或頁尾含中文時，請選「繁體中文＋英文」或「簡體中文＋英文」，英文模式可能誤認中文。「可編輯文字版」整併同段落斷行、依明顯欄間距整理閱讀順序，方便修改；複雜欄位與表格仍需校對，可改選「原始換行文字（不重排）」。如需圖片及字型位置，請選「保留外觀」；字型屬推估，複雜表格不還原。':'可編輯文字版保留分頁，不還原原排版、表格與圖片。';
   document.getElementById('word-fast').checked=!document.getElementById('word-preserve').checked;
   document.getElementById('word-look').checked=document.getElementById('word-preserve').checked;
   document.getElementById('word-fast').disabled=document.getElementById('word-look').disabled=wordBusy;
@@ -2002,7 +2003,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v13');
+      const cache=await caches.open('person-convert-pwa-v14');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

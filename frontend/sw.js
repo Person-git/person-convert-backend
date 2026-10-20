@@ -1,6 +1,6 @@
 /* Cache only public application assets: never PDFs, passwords, outputs or API requests. */
-const CACHE='person-convert-pwa-v13';
-const LOCAL=['/','/index.html','/app-core.js','/lazy-pdf.js','/workspace-tools.js','/word-trial.js','/text-color.js','/manifest.json','/ocr-word.js','/ocr-layout.js','/ocr-style.js','/ocr-flow.js','/pdf-fidelity.js','/pdf-guide.js','/local-convert.js','/local-compress.js','/unlock-pdf.js','/unlock-worker.js','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png'];
+const CACHE='person-convert-pwa-v14';
+const LOCAL=['/','/index.html','/app-core.js','/lazy-pdf.js','/workspace-tools.js','/word-trial.js','/text-color.js','/page-structure.js','/manifest.json','/ocr-word.js','/ocr-layout.js','/ocr-style.js','/ocr-flow.js','/pdf-fidelity.js','/pdf-guide.js','/local-convert.js','/local-compress.js','/unlock-pdf.js','/unlock-worker.js','/icons/icon-192.png','/icons/icon-512.png','/icons/icon-maskable-512.png','/icons/apple-touch-icon.png'];
 const LIBRARIES=[
   'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',

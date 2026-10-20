@@ -16,6 +16,16 @@
       return groups.map(group=>({text:group.map(w=>w.text).join(' '),words:group,bbox:{x0:Math.min(...group.map(w=>w.bbox.x0)),y0:Math.min(...group.map(w=>w.bbox.y0)),x1:Math.max(...group.map(w=>w.bbox.x1)),y1:Math.max(...group.map(w=>w.bbox.y1))}}));
     }).filter(line=>line.text.trim()&&line.bbox);
   }
+  function tableXml(table,scale){
+    const xs=table.xs,ys=table.ys,tw=n=>Math.max(0,Math.round(n*20));
+    const runXml=run=>`<w:r><w:rPr><w:rFonts w:ascii="${esc(run.fontFamily||'Arial')}" w:hAnsi="${esc(run.fontFamily||'Arial')}" w:eastAsia="${esc(run.fontFamily||'Microsoft JhengHei')}"/><w:sz w:val="${Math.round(Math.max(4,Math.min(72,run.fontSize||10))*2)}"/>${run.bold?'<w:b/>':''}${run.italic?'<w:i/>':''}${/^[0-9a-f]{6}$/i.test(run.color||'')?`<w:color w:val="${run.color}"/>`:''}</w:rPr><w:t xml:space="preserve">${esc(run.text)}</w:t></w:r>`;
+    const rows=table.rows.map((row,r)=>`<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="${tw(ys[r+1]-ys[r])}" w:hRule="exact"/></w:trPr>${row.map((cell,c)=>{
+      const paragraphs=[];for(const run of cell){let group=paragraphs.at(-1);if(!group||Math.abs(group[0].bbox.y0-run.bbox.y0)>Math.min(group[0].bbox.y1-group[0].bbox.y0,run.bbox.y1-run.bbox.y0)*.5){group=[];paragraphs.push(group);}group.push(run);}
+      const before=cell.length?Math.max(0,Math.min((ys[r+1]-ys[r])*.5,cell[0].bbox.y0/scale-ys[r]-(cell[0].fontSize||10)*.1)):0;
+      return `<w:tc><w:tcPr><w:tcW w:w="${tw(xs[c+1]-xs[c])}" w:type="dxa"/><w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="${tw(2)}" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="${tw(2)}" w:type="dxa"/></w:tcMar><w:vAlign w:val="top"/></w:tcPr>${paragraphs.length?paragraphs.map((words,i)=>`<w:p><w:pPr><w:spacing w:before="${i?0:tw(before)}" w:after="0" w:line="${tw(Math.max(...words.map(w=>w.fontSize||10))*1.15)}" w:lineRule="exact"/></w:pPr>${words.map((word,j)=>runXml({...word,text:(j?' ':'')+word.text})).join('')}</w:p>`).join(''):'<w:p/>'}</w:tc>`;
+    }).join('')}</w:tr>`).join('');
+    return `<w:tbl><w:tblPr><w:tblpPr w:leftFromText="0" w:rightFromText="0" w:topFromText="0" w:bottomFromText="0" w:vertAnchor="page" w:horzAnchor="page" w:tblpX="${tw(xs[0])}" w:tblpY="${tw(ys[0])}"/><w:tblW w:w="${tw(xs.at(-1)-xs[0])}" w:type="dxa"/><w:tblBorders>${['top','left','bottom','right','insideH','insideV'].map(n=>`<w:${n} w:val="nil"/>`).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${xs.slice(1).map((x,i)=>`<w:gridCol w:w="${tw(x-xs[i])}"/>`).join('')}</w:tblGrid>${rows}</w:tbl><w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="1" w:lineRule="exact"/></w:pPr></w:p>`;
+  }
   function documentXml(pages){
     let id=0,fitId=0;
     const section=page=>`<w:sectPr><w:type w:val="nextPage"/><w:pgSz w:w="${Math.round(page.width*20)}" w:h="${Math.round(page.height*20)}"/><w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0"/></w:sectPr>`;
@@ -39,10 +49,10 @@
         }).join('');
         return `<w:r><w:pict><v:rect id="ocr_line_${++id}" style="position:absolute;margin-left:${x.toFixed(2)}pt;margin-top:${Math.max(0,y-size*.1).toFixed(2)}pt;width:${width.toFixed(2)}pt;height:${boxHeight.toFixed(2)}pt;mso-position-horizontal-relative:page;mso-position-vertical-relative:page;rotation:${Number(line.rotation)||0};z-index:${id}" filled="f" stroked="f"><v:textbox inset="0,0,0,0"><w:txbxContent><w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${Math.round(Math.max(size*1.2,height)*20)}" w:lineRule="exact"/></w:pPr>${runs}</w:p></w:txbxContent></v:textbox><w10:wrap type="none"/></v:rect></w:pict></w:r>`;
       }).join('');
-      return `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr>${picture}${shapes}</w:p>`+(index<pages.length-1?`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>${section(page)}</w:pPr></w:p>`:section(page));
+      return `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr>${picture}${shapes}</w:p>`+(page.tables||[]).map(t=>tableXml(t,page.scale)).join('')+(index<pages.length-1?`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>${section(page)}</w:pPr></w:p>`:section(page));
     }).join('');
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}</w:body></w:document>`;
   }
-  const api={linesFromBlocks,documentXml};
+  const api={linesFromBlocks,documentXml,tableXml};
   if(typeof module!=='undefined')module.exports=api;else root.OCRLayout=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

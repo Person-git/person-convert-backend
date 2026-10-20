@@ -69,18 +69,18 @@
     }
     return found;
   }
-  function prepareOcrOverlay(lines,scale,regions=[],pageHeight=Infinity){
+  function prepareOcrOverlay(lines,scale,regions=[],pageHeight=Infinity,canvas=null,grids=[]){
     const footers=footerLines(lines,scale,pageHeight);
     const masks=[];let retained=0;
     for(const line of lines){
-      if(!line.runs){masks.push(line);continue;}
-      for(const run of line.runs){
+      for(const run of line.runs||[line]){
         const symbolsOnly=!/[\p{L}\p{N}]/u.test(run.text);
         const b=run.bbox,area=Math.max(1,(b.x1-b.x0)*(b.y1-b.y0));
         const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
         const footer=footers.has(line);
         run.rasterOnly=footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
         run.retainedReason=run.rasterOnly?(footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
+        if(!run.rasterOnly&&canvas&&root.PageStructure){run.background=root.PageStructure.background(canvas,b,grids);if(!run.background){run.rasterOnly=true;run.retainedReason='背景不均，保留原圖';}}
         if(run.rasterOnly)retained++;else masks.push(run);
       }
     }
@@ -105,7 +105,7 @@
         context.drawImage(canvas,0,0,out.width,out.height);
         // Remove recognised text before placing editable text above the graphic layer.
         // Scans/outlined glyphs lack object semantics: white masks are approximate.
-        for(const line of lines){const b=line.bbox,pad=Math.max(1,(b.y1-b.y0)*.12)/scale;context.fillRect((b.x0/scale-pad)*factor,(b.y0/scale-pad)*factor,((b.x1-b.x0)/scale+pad*2)*factor,((b.y1-b.y0)/scale+pad*2)*factor);}
+        for(const line of lines){if(line.background){const m=line.background;context.fillStyle="#"+m.colour;context.fillRect(m.x/scale*factor,m.y/scale*factor,m.width/scale*factor,m.height/scale*factor);continue;}context.fillStyle="#fff";const b=line.bbox,pad=Math.max(1,(b.y1-b.y0)*.12)/scale;context.fillRect((b.x0/scale-pad)*factor,(b.y0/scale-pad)*factor,((b.x1-b.x0)/scale+pad*2)*factor,((b.y1-b.y0)/scale+pad*2)*factor);}
       }
       check(signal);return out.toDataURL('image/png').split(',')[1];
     }finally{out.width=out.height=0;}
@@ -113,7 +113,9 @@
   async function nativePage(page,canvas,scale,signal){
     const result=await nativeText(page);if(!result)return null;
     for(const line of result.lines)line.color=root.TextColor?.sample(canvas,line.bbox,scale);
-    result.image=await graphics(page,canvas,scale,result.lines,true,signal);return result;
+    result.image=await graphics(page,canvas,scale,result.lines,true,signal);
+    if(root.PageStructure){const grids=root.PageStructure.detect(canvas).map(g=>({xs:g.xs.map(x=>x/scale),ys:g.ys.map(y=>y/scale)})),structured=root.PageStructure.tables(result.lines,grids,1);result.lines=structured.lines;result.tables=structured.tables;}
+    return result;
   }
   const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions,footerLines};
   if(typeof module!=='undefined')module.exports=api;else root.PDFFidelity=api;

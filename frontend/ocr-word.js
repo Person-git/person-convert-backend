@@ -108,18 +108,19 @@
         if(layout){
           let lines=root.OCRLayout.linesFromBlocks(result.data.blocks);const context=canvas.getContext('2d');
           for(const line of lines){const cjk=/[\u3400-\u9fff]/.test(line.text);context.font='100px '+(cjk?'Microsoft JhengHei':'Arial');const units=context.measureText(line.text.trim()).width/100;const height=(line.bbox.y1-line.bbox.y0)/scale;line.fontSize=Math.min(height*(cjk?1.08:1.22),(line.bbox.x1-line.bbox.x0)/scale/Math.max(.01,units));}
-          let masks=lines,retained=0,styleStats=null;
+          let masks=lines,retained=0,styleStats=null;const grids=preserve&&root.PageStructure?root.PageStructure.detect(canvas):[];
           if(root.OCRStyle){
             onPage(index+1,numbers.length,'style',0,number);
             const styled=await root.OCRStyle.analyze(lines,canvas,scale,createCanvas,signal,(done,count)=>onPage(index+1,numbers.length,'style',Math.round(done/Math.max(1,count)*100),number),styleCache);
             lines=styled.lines;styleStats=styled.stats;
           }
           if(preserve)onPage(index+1,numbers.length,'graphics',0,number);
-          if(preserve&&root.PDFFidelity.prepareOcrOverlay){const regions=await root.PDFFidelity.smallImageRegions(page);checkAbort(signal);const overlay=root.PDFFidelity.prepareOcrOverlay(lines,scale,regions,base.height);masks=overlay.masks;retained=overlay.retained;}
+          if(preserve&&root.PDFFidelity.prepareOcrOverlay){const regions=await root.PDFFidelity.smallImageRegions(page);checkAbort(signal);const overlay=root.PDFFidelity.prepareOcrOverlay(lines,scale,regions,base.height,canvas,grids);masks=overlay.masks;retained=overlay.retained;}
           const image=preserve?await root.PDFFidelity.graphics(page,canvas,scale,masks,false,signal):null;
           account(image);
           reviewedLines=lines;
-          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines,image,styleStats,retained});
+          const structured=preserve&&root.PageStructure?root.PageStructure.tables(lines,grids,scale):{lines,tables:[]};
+          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines:structured.lines,tables:structured.tables,image,styleStats,retained});
         }else if(reflow){
           const flow=typeof module!=='undefined'?require('./ocr-flow.js'):root.OCRFlow;
           texts.push(flow.textFromBlocks(result.data.blocks,result.data.text||''));
@@ -219,9 +220,10 @@
         showReview(review,selected.name);
         const styleTotals=texts.reduce((sum,page)=>{if(page.styleStats)for(const key of ['matched','uncertain','inherited','bold','italic'])sum[key]+=page.styleStats[key];return sum;},{matched:0,uncertain:0,inherited:0,bold:0,italic:0});
         const styleNote=layout&&texts.some(page=>page.styleStats)?`；視覺比對 ${styleTotals.matched} 詞、同列推估 ${styleTotals.inherited} 詞（粗體 ${styleTotals.bold}、斜體 ${styleTotals.italic}），${styleTotals.uncertain} 詞採一般替代樣式，請校對`:'';
+        const tableCount=texts.reduce((sum,page)=>sum+(page.tables?.length||0),0);
         const retained=texts.reduce((sum,page)=>sum+(page.retained||0),0),retainedNote=retained?`；${retained} 個低信心字詞／符號／圖示／頁尾文字保留原圖，不可直接編輯`:'';
         const timingNote=Object.entries(timings).filter(([,ms])=>ms>=50).map(([key,ms])=>`${({prepare:'準備',render:'頁面',recognize:'OCR',style:'字型',graphics:'圖片',docx:'Word'})[key]} ${(ms/1000).toFixed(1)} 秒`).join('／');
-        bar.value=100;message(`完成 100% · ${total} 個指定頁面 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}${styleNote}${retainedNote}；耗時：${timingNote}`);
+        bar.value=100;message(`完成 100% · ${total} 個指定頁面 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}${styleNote}${retainedNote}${tableCount?`；${tableCount} 個簡單表格已轉為可編輯表格`:""}；耗時：${timingNote}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${root.AppCore.errorMessage(error)}`,!signal.aborted);

@@ -48,7 +48,7 @@
       const sheets=kind==='xlsx'?await AppTasks.wait(loadSheets()):null;AppTasks.check();
       task=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),fontExtraProperties:kind==='svg'||preserve,isOffscreenCanvasSupported:false});AppTasks.watch(task);const pdf=await task.promise;
       const allNumbers=AppCore.pages(pageValue,pdf.numPages),numbers=options.trial?allNumbers.slice(0,1):allNumbers;
-      const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg,imageBytes=0;const texts=[];
+      let tableCount=0;const workbook=sheets?sheets.utils.book_new():null,zip=kind==='svg'?new JSZip():null;let textCount=0,singleSvg,imageBytes=0;const texts=[];
       for(let i=0;i<numbers.length;i++){
         await AppTasks.step(i,numbers.length,'轉換頁面');
         const page=await pdf.getPage(numbers[i]);
@@ -64,7 +64,7 @@
                 const rich=await PDFFidelity.nativePage(page,canvas,scale);
                 if(!rich)throw new Error('此頁沒有足夠的文字層，請選擇 OCR 處理方式以保留圖片');
                 imageBytes+=(rich.image?.length||0)*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');
-                textCount+=rich.lines.length;texts.push(rich);
+                textCount+=rich.lines.length+(rich.tables?.length||0);tableCount+=rich.tables?.length||0;texts.push(rich);
               }finally{canvas.width=canvas.height=0;}
             }else{const content=await page.getTextContent();const rows=textRows(content.items);textCount+=rows.length;texts.push(rows.map(row=>row.join('\t')).join('\n'));}
           }else{
@@ -85,7 +85,7 @@
         download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');
       }else if(numbers.length===1)download(new Blob([singleSvg],{type:'image/svg+xml'}),`page-${numbers[0]}.svg`);
       else download(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'pages-svg.zip');
-      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${kind==='docx'?(preserve?'圖片圖層與字型名稱已保留，請校對字型與位置':'文字版 Word，不保留原排版'):sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
+      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${kind==='docx'?(preserve?`圖片圖層與字型名稱已保留，請校對字型與位置${tableCount?'；'+tableCount+' 個簡單表格可編輯':''}`:'文字版 Word，不保留原排版'):sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
     }catch(error){progress.hidden=true;setStatus(status,error,true);}
     finally{if(task)await task.destroy().catch(()=>{});delete button.dataset.busy;button.disabled=false;}
   }
