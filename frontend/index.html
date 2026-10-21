@@ -13,23 +13,24 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=25"></script>
-<script src="lazy-pdf.js?v=25"></script>
-<script src="workspace-tools.js?v=25"></script>
-<script src="word-trial.js?v=25"></script>
-<script src="text-color.js?v=25"></script>
-<script src="page-structure.js?v=25"></script>
-<script src="ocr-layout.js?v=25"></script>
-<script src="ocr-style.js?v=25"></script>
-<script src="ocr-flow.js?v=25"></script>
-<script src="pdf-fidelity.js?v=25"></script>
-<script src="word-geometry.js?v=25"></script>
-<script src="pdf-guide.js?v=25"></script>
-<script src="word-session.js?v=25"></script>
-<script src="ocr-word.js?v=25"></script>
-<script src="local-convert.js?v=25"></script>
-<script src="protect-pdf.js?v=25"></script>
-<script src="local-compress.js?v=25"></script>
+<script src="app-core.js?v=26"></script>
+<script src="download-results.js?v=26"></script>
+<script src="lazy-pdf.js?v=26"></script>
+<script src="workspace-tools.js?v=26"></script>
+<script src="word-trial.js?v=26"></script>
+<script src="text-color.js?v=26"></script>
+<script src="page-structure.js?v=26"></script>
+<script src="ocr-layout.js?v=26"></script>
+<script src="ocr-style.js?v=26"></script>
+<script src="ocr-flow.js?v=26"></script>
+<script src="pdf-fidelity.js?v=26"></script>
+<script src="word-geometry.js?v=26"></script>
+<script src="pdf-guide.js?v=26"></script>
+<script src="word-session.js?v=26"></script>
+<script src="ocr-word.js?v=26"></script>
+<script src="local-convert.js?v=26"></script>
+<script src="protect-pdf.js?v=26"></script>
+<script src="local-compress.js?v=26"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -59,9 +60,9 @@
   .field{display:flex;flex-direction:column;gap:6px;max-width:100%;min-width:0;font-size:12px;color:var(--ink-soft);}
   .field input[type=number],.field input[type=text],.field input[type=password],.field select{background:#fff;border:1px solid #d5dae2;color:var(--paper);padding:9px 11px;font-family:inherit;font-size:13px;width:90px;border-radius:8px;min-height:40px;max-width:100%;}
   input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,.dropzone:focus-within{outline:3px solid #a8c2e5;outline-offset:3px;}
-  button.run{background:var(--stamp);color:#fff;border:1px solid transparent;font-family:inherit;font-weight:600;font-size:13px;letter-spacing:0;padding:10px 18px;border-radius:9px;cursor:pointer;min-height:40px;text-transform:none;transition:background .15s,transform .1s;}
-  button.run:hover{background:#243d60;}
-  button.run:active{transform:translateY(1px);}
+  button.run,a.run{background:var(--stamp);color:#fff;border:1px solid transparent;font-family:inherit;font-weight:600;font-size:13px;letter-spacing:0;padding:10px 18px;border-radius:9px;cursor:pointer;min-height:40px;text-transform:none;transition:background .15s,transform .1s;}
+  button.run:hover,a.run:hover{background:#243d60;}
+  button.run:active,a.run:active{transform:translateY(1px);}
   button.run:disabled{background:#e9edf2;color:#8b95a2;cursor:not-allowed;}
   #btn-ocr-cancel,#btn-pm-preview{background:#fff;color:var(--stamp);border-color:#d5dae2;}
   #btn-ocr-cancel:disabled,#btn-pm-preview:disabled{color:#9aa3af;}
@@ -115,7 +116,7 @@
   .pdf-guidance{margin-top:14px;padding:14px 16px;border:1px solid #cbdcf0;background:#f2f7fe;border-radius:10px;font-size:13px;color:#405b7b;}
   .pdf-guidance strong{display:block;margin-bottom:6px;}
   .pdf-guidance .row{margin-top:10px;}
-  .pdf-guidance button.run{font-size:12px;padding:7px 12px;min-height:34px;}
+  .pdf-guidance button.run,a.run{font-size:12px;padding:7px 12px;min-height:34px;}
   .word-quality{border:0;padding:0;margin:18px 0 0;min-width:0;}
   .word-quality legend{font-size:13px;color:#566575;margin-bottom:8px;}
   .quality-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;}
@@ -126,7 +127,7 @@
   .ocr-review{margin-top:16px;padding:14px 16px;border:1px solid #e5cf8e;border-radius:10px;background:#fffdf4;font-size:13px;overflow-wrap:anywhere;}
   .ocr-review[hidden]{display:none;}
   #ocr-page-canvas canvas{display:block;width:100%;max-width:900px;height:auto;border:1px solid #d3dbe6;}
-  #word-result a{text-decoration:none;display:inline-block;}
+  #word-result a,.download-result a{text-decoration:none;display:inline-block;}
   .ocr-review summary{cursor:pointer;color:#785813;font-weight:600;}
   .ocr-review ol{max-height:320px;overflow:auto;padding-left:24px;}
   .ocr-review li{padding:7px 0;line-height:1.7;}
@@ -702,7 +703,7 @@ function setupDropzone(dzId,inputId,onFiles){
   const dz=document.getElementById(dzId),input=document.getElementById(inputId);let generation=0;
   const submit=async files=>{
     if(AppTasks.busy||!files.length)return;const current=++generation;
-    try{const checked=await AppCore.normalizeFiles(files,input.accept);if(current!==generation||AppTasks.busy)return;await onFiles(checked);}
+    try{const checked=await AppCore.normalizeFiles(files,input.accept);if(current!==generation||AppTasks.busy)return;await onFiles(checked);window.DownloadResults?.clearOwner(dz.closest('.sheet').id);}
     catch(error){const status=dz.closest('.sheet').querySelector('.status');if(status)setStatus(status.id,AppCore.errorMessage(error),true);}
   };
   dz.addEventListener('click',event=>{if(event.target!==input&&!input.disabled&&!AppTasks.busy)input.click();});
@@ -721,7 +722,7 @@ function renderList(listId, files, onRemove){
     const label=document.createElement('span');label.textContent=`${f.name} (${(f.size/1024).toFixed(1)} KB)`;div.appendChild(label);
     const btn = document.createElement('button');
     btn.textContent = '移除';
-    btn.onclick = () => onRemove(i);
+    btn.onclick = () => {if(AppTasks.busy)return;window.DownloadResults?.clearOwner(el.closest('.sheet').id);onRemove(i);};
     div.appendChild(btn);
     el.appendChild(div);
   });
@@ -729,6 +730,7 @@ function renderList(listId, files, onRemove){
 
 function download(blob, filename){
   AppTasks.check();if(blob.size>128*1024*1024)throw Error('輸出超過 128 MB，請減少頁數或降低解析度後重試');
+  if(window.DownloadResults)return DownloadResults.publish(blob,filename);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename;
@@ -2035,7 +2037,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v25');
+      const cache=await caches.open('person-convert-pwa-v26');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

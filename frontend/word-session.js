@@ -25,11 +25,12 @@ function closePreview(){
  const panel=$('ocr-page-location');if(panel)panel.hidden=true;
  $('ocr-page-canvas')?.replaceChildren();
 }
-function clearResult(){vault.clear();const link=$('word-result-download');if(link){link.removeAttribute('href');link.removeAttribute('download');}if($('word-result'))$('word-result').hidden=true;}
+function clearResult(){root.DownloadResults?.clearOwner('convert-word');vault.clear();const link=$('word-result-download');if(link){link.removeAttribute('href');link.removeAttribute('download');}if($('word-result'))$('word-result').hidden=true;}
 function clear(){clearResult();closePreview();source=null;}
 function start(){clearResult();closePreview();}
 function setFile(file){clear();source=file;}
 function publish(blob,name){
+ if(root.DownloadResults)return root.DownloadResults.publish(blob,name,'convert-word');
  const url=vault.set(blob,name),link=$('word-result-download');
  link.href=url;link.download=name;$('word-result-name').textContent=name;$('word-result').hidden=false;
  // Keep the same URL alive for a later explicit click, even when the browser

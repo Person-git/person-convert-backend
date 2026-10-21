@@ -69,7 +69,7 @@ if(typeof module!=='undefined')module.exports=api;
 else{
  root.AppCore=api;
  let active=null;
- const tasks={get busy(){return !!active;},get signal(){return active?.controller.signal;},check(){if(active?.controller.signal.aborted)throw abortError();},
+ const tasks={get busy(){return !!active;},get owner(){return active?.owner;},get signal(){return active?.controller.signal;},check(){if(active?.controller.signal.aborted)throw abortError();},
   wait(promise){
    const signal=active?.controller.signal;if(!signal)return Promise.resolve(promise);
    return new Promise((resolve,reject)=>{const abort=()=>reject(abortError());signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort));});
@@ -85,7 +85,9 @@ else{
    if(active)return;
    const banner=document.getElementById('task-banner'),progress=document.getElementById('task-progress'),label=document.getElementById('task-label'),cancel=document.getElementById('task-cancel');
    const controls=[...document.querySelectorAll('main input,main select,main button')].map(el=>[el,el.disabled]);
-   const job={controller:new AbortController(),progress,label,cancel,error:false,downloaded:false};active=job;
+   const owner=button.closest('.sheet')?.id;
+   if(!['btn-word-trial','btn-offline-prepare','btn-excel-preview','btn-compression-preview'].includes(button.id))root.DownloadResults?.clearOwner(owner);
+   const job={owner,controller:new AbortController(),progress,label,cancel,error:false,downloaded:false};active=job;
    controls.forEach(([el])=>el.disabled=true);banner.hidden=false;progress.removeAttribute('value');cancel.disabled=false;cancel.textContent='取消目前工作';cancel.onclick=tasks.cancel;
    label.textContent=button.textContent.trim();document.body.dataset.taskActive='1';
    const started=performance.now(),clock=document.getElementById('task-clock'),timer=setInterval(()=>clock.textContent=`已用 ${Math.floor((performance.now()-started)/1000)} 秒`,1000);clock.textContent='已用 0 秒';

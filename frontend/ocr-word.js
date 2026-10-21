@@ -38,6 +38,7 @@
     return ['OCR 校對清單',`共 ${review.total} 個待校對項目；列出 ${review.items.length} 個。`, `OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`, '信心分數不是正確率；未標示不代表正確，數字、單位與專有名詞仍需核對。',...review.items.map(r=>`第 ${r.page} 頁 · 距頂端 ${r.position??'?'}% · 信心 ${r.confidence===null?'未提供':r.confidence+'/100'} · ${r.text} · ${reviewNote(r)}`)].join('\n');
   }
   function clearReview(){
+    root.DownloadResults?.clear('convert-word:review');
     root.WordSession?.closePreview();
     const panel=document.getElementById('ocr-review');if(!panel)return;
     panel.hidden=true;panel.open=false;
@@ -66,6 +67,7 @@
     if(!list.children.length){const empty=document.createElement('li');empty.textContent='目前列出的項目中沒有此類提示；若已達 200 項上限，其他項目可能未列出。';list.append(empty);}
     };if(filter){filter.value='all';filter.onchange=render;}render();
     document.getElementById('btn-review-download').onclick=()=>{
+      if(root.DownloadResults){root.DownloadResults.publish(new Blob([reviewText(review)],{type:'text/plain;charset=utf-8'}),name.replace(/\.pdf$/i,'')+'-review.txt','convert-word',{key:'convert-word:review',host:document.getElementById('ocr-review')});return;}
       const url=URL.createObjectURL(new Blob([reviewText(review)],{type:'text/plain;charset=utf-8'})),link=document.createElement('a');
       link.href=url;link.download=name.replace(/\.pdf$/i,'')+'-review.txt';document.body.appendChild(link);link.click();link.remove();root.AppTasks?.downloaded();setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
