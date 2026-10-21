@@ -92,23 +92,15 @@
         const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
         const footer=footers.has(line);
         // OCR certainty and font certainty are different. Never replace a
-        // readable glyph with an uncorroborated fallback font. This gate only
-        // applies to the visual-style OCR route, not native PDF text.
-        const uncertainStyle=run.styleAnalyzed&&!run.matched&&!run.inherited;
+        // isolated label with an uncorroborated fallback font. Do not expand
+        // this rule into running body text: mixing extra raster fragments
+        // with substitute Word fonts exaggerates baseline differences.
+        const uncertainStyle=run.styleAnalyzed&&sourceRuns.length<=2&&!run.matched&&!run.inherited;
         const isolatedFamily=run.styleAnalyzed&&run.matched&&!run.inherited&&sourceRuns.length<=2&&run.familyMargin<.012;
         const isolatedMarker=sourceRuns.length===1&&/^[A-Za-z]$/.test(run.text.trim())&&lines.some(other=>other!==line&&(other.runs||[other]).some(word=>{const a=word.bbox;return word.fontSize>0&&run.fontSize>word.fontSize*1.2&&Math.min(b.y1,a.y1)>Math.max(b.y0,a.y0)&&a.x0>b.x1&&a.x0-b.x1<scale*35;}));
         run.rasterOnly=badGeometry||isolatedMarker||uncertainStyle||isolatedFamily||footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
         run.retainedReason=run.rasterOnly?(badGeometry?'字詞位置不可靠':isolatedMarker?'獨立小字樣式不可靠':uncertainStyle||isolatedFamily?'字型樣式不確定，保留原圖':footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
         if(!run.rasterOnly&&canvas&&root.PageStructure){run.background=root.PageStructure.background(canvas,b,grids);if(!run.background){run.rasterOnly=true;run.retainedReason='背景不均，保留原圖';}}
-      }
-      // Keep a short Latin fragment next to retained text on its original
-      // baseline. Snapshot the seeds: do not cascade this typography rule
-      // through an entire sentence. Mask-overlap protection runs afterwards.
-      const retained=sourceRuns.filter(r=>r.rasterOnly&&!/^[^\p{L}\p{N}]+$/u.test(r.text));
-      for(const run of sourceRuns){
-        if(run.rasterOnly||!run.styleAnalyzed||!/^\s*[A-Za-z]{1,3}[,.;:!?]?\s*$/.test(run.text))continue;
-        const b=run.bbox,near=retained.some(r=>{const a=r.bbox,gap=Math.max(a.x0-b.x1,b.x0-a.x1,0),overlap=Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0);return overlap>Math.min(a.y1-a.y0,b.y1-b.y0)*.5&&gap<=Math.min(run.fontSize,r.fontSize)*scale*.75;});
-        if(near){run.rasterOnly=true;run.retainedReason='短字與原圖基線交界，保留原圖';}
       }
     }
     return protectRasterNeighbours(lines,scale);

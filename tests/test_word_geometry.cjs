@@ -17,11 +17,15 @@ global.OCRLayout=layout;const files={};class Zip{file(n,v,o){files[n]={v,o};}asy
 
 const fs=require('node:fs');for(const path of ['frontend/local-convert.js','frontend/ocr-word.js'])assert(fs.readFileSync(path,'utf8').includes('WordGeometry.improve('),'Both native and OCR conversion paths must run reconstruction');
 
-// Retained graphics still occupy their original horizontal slot. A plain space
-// without fitText collapses, shifting every following editable word to the left.
-for(const retained of [[0],[1],[2],[0,1],[1,2]]){
+
+// Retained raster words must not participate in Word spacing or line metrics.
+for(const retained of [[0],[1],[2],[0,1],[1,2],[0,1,2]]){
  const runs=['LEFT','ICON','RIGHT'].map((text,i)=>({text,fontFamily:'Arial',fontSize:10,rasterOnly:retained.includes(i),bbox:{x0:10+i*50,y0:20,x1:50+i*50,y1:32}}));
- const xml=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'LEFT ICON RIGHT',bbox:{x0:10,y0:20,x1:150,y1:32},fontSize:10,runs}]}]);
- const widths=[...xml.matchAll(/<w:fitText w:val="(\d+)"/g)].map(m=>Number(m[1]));const expected=runs.flatMap((r,i)=>i===2?[800]:r.rasterOnly?[1000]:[800,200]);assert.deepEqual(widths,expected,'Retained slots reserve full span; editable glyphs and gaps reserve separate widths');
+ const line={text:'LEFT ICON RIGHT',bbox:{x0:10,y0:20,x1:150,y1:32},fontSize:10,runs};
+ const segments=layout.editableSegments(line),xml=layout.documentXml([{width:600,height:800,scale:1,lines:[line]}]);
+ assert.equal(segments.flatMap(l=>l.runs).length,3-retained.length);
+ for(const segment of segments){assert.equal(segment.bbox.y0,20);assert.equal(segment.fontSize,10);assert(xml.includes('margin-left:'+segment.runs[0].bbox.x0.toFixed(2)+'pt'));}
  retained.forEach(i=>assert(!xml.includes('>'+runs[i].text+'<'),'Retained words must not also print editable text'));
+ assert.equal((xml.match(/<w:txbxContent>/g)||[]).length,segments.length);
+ assert(!xml.includes('preserve"> </w:t>')||segments.some(l=>l.runs.length>1),'No blank raster placeholders');
 }

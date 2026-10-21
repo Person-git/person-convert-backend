@@ -27,13 +27,22 @@
     return `<w:tbl><w:tblPr><w:tblpPr w:leftFromText="0" w:rightFromText="0" w:topFromText="0" w:bottomFromText="0" w:vertAnchor="page" w:horzAnchor="page" w:tblpX="${tw(xs[0])}" w:tblpY="${tw(ys[0])}"/><w:tblW w:w="${tw(xs.at(-1)-xs[0])}" w:type="dxa"/><w:tblBorders>${['top','left','bottom','right','insideH','insideV'].map(n=>`<w:${n} w:val="nil"/>`).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${xs.slice(1).map((x,i)=>`<w:gridCol w:w="${tw(x-xs[i])}"/>`).join('')}</w:tblGrid>${rows}</w:tbl><w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="1" w:lineRule="exact"/></w:pPr></w:p>`;
   }
   function runsForParagraph(line,n,count){return (line.runs||[line]).map((r,i,a)=>({...r,joinAfter:i<a.length-1&& !(/[\u3400-\u9fff]$/.test(r.text)&&/^[\u3400-\u9fff]/.test(a[i+1].text))?' ':'',paragraphEnd:i===a.length-1&&n<count-1&&!(/[\u3400-\u9fff]$/.test(r.text))}));}
+  function editableSegments(line){
+    if(line.paragraphLines||!line.runs?.some(r=>r.rasterOnly))return [line];
+    const groups=[];let group=[];
+    const flush=()=>{if(group.length){groups.push({...line,runs:group,text:group.map(r=>r.text).join(' ')});group=[];}};
+    // A retained raster glyph is a boundary, not a Word space. Separate text
+    // boxes restart at source x; all segments keep the original line y/size.
+    for(const run of line.runs){if(run.rasterOnly)flush();else group.push(run);}flush();
+    return groups;
+  }
   function documentXml(pages){
     let id=0,fitId=0;
     const section=page=>`<w:sectPr><w:type w:val="nextPage"/><w:pgSz w:w="${Math.round(page.width*20)}" w:h="${Math.round(page.height*20)}"/><w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0"/></w:sectPr>`;
     const body=pages.map((page,index)=>{
       const pictureXml=(p,relation,behind)=>`<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${behind?0:1}" behindDoc="${behind?1:0}" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round((p.x||0)*12700)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round((p.y||0)*12700)}</wp:posOffset></wp:positionV><wp:extent cx="${Math.round(p.width*12700)}" cy="${Math.round(p.height*12700)}"/><wp:wrapNone/><wp:docPr id="${100000+(++id)}" name="${behind?"Page graphics":"Independent picture"} ${index+1}"/><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="page-${index+1}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relation}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(p.width*12700)}" cy="${Math.round(p.height*12700)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
       const picture=(page.image?pictureXml(page,`rImage${index+1}`,true):'')+(page.pictures||[]).map((p,n)=>pictureXml(p,`rPicture${index+1}_${n+1}`,false)).join('');
-      const shapes=page.lines.filter(line=>!(line.runs||[line]).every(r=>r.rasterOnly)).map(line=>{
+      const shapes=page.lines.flatMap(editableSegments).filter(line=>!(line.runs||[line]).every(r=>r.rasterOnly)).map(line=>{
         const sourceBoxes=!line.paragraphLines&&line.runs?.map(r=>r.bbox).filter(Boolean);
         const b=sourceBoxes?.length?{x0:Math.min(...sourceBoxes.map(b=>b.x0)),y0:line.bbox.y0,x1:Math.max(...sourceBoxes.map(b=>b.x1)),y1:line.bbox.y1}:line.bbox,scale=page.scale;
         const x=Math.max(0,b.x0/scale),y=Math.max(0,b.y0/scale),height=(b.y1-b.y0)/scale;
@@ -61,6 +70,6 @@
     }).join('');
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}</w:body></w:document>`;
   }
-  const api={linesFromBlocks,documentXml,tableXml};
+  const api={linesFromBlocks,documentXml,tableXml,editableSegments};
   if(typeof module!=='undefined')module.exports=api;else root.OCRLayout=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
