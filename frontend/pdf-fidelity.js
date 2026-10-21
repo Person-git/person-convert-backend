@@ -73,13 +73,14 @@
     const footers=footerLines(lines,scale,pageHeight);
     const masks=[];let retained=0;
     for(const line of lines){
-      for(const run of line.runs||[line]){
+      const sourceRuns=line.runs||[line],badGeometry=sourceRuns.some((r,i)=>i>0&&r.bbox.x0<=sourceRuns[i-1].bbox.x0);
+      for(const run of sourceRuns){
         const symbolsOnly=!/[\p{L}\p{N}]/u.test(run.text);
         const b=run.bbox,area=Math.max(1,(b.x1-b.x0)*(b.y1-b.y0));
         const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
         const footer=footers.has(line);
-        run.rasterOnly=footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
-        run.retainedReason=run.rasterOnly?(footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
+        run.rasterOnly=badGeometry||footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
+        run.retainedReason=run.rasterOnly?(badGeometry?'字詞位置不可靠':footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
         if(!run.rasterOnly&&canvas&&root.PageStructure){run.background=root.PageStructure.background(canvas,b,grids);if(!run.background){run.rasterOnly=true;run.retainedReason='背景不均，保留原圖';}}
         if(run.rasterOnly)retained++;else masks.push(run);
       }

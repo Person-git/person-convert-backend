@@ -33,8 +33,9 @@
     const body=pages.map((page,index)=>{
       const pictureXml=(p,relation,behind)=>`<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${behind?0:1}" behindDoc="${behind?1:0}" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round((p.x||0)*12700)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round((p.y||0)*12700)}</wp:posOffset></wp:positionV><wp:extent cx="${Math.round(p.width*12700)}" cy="${Math.round(p.height*12700)}"/><wp:wrapNone/><wp:docPr id="${100000+(++id)}" name="${behind?"Page graphics":"Independent picture"} ${index+1}"/><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="page-${index+1}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relation}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(p.width*12700)}" cy="${Math.round(p.height*12700)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
       const picture=(page.image?pictureXml(page,`rImage${index+1}`,true):'')+(page.pictures||[]).map((p,n)=>pictureXml(p,`rPicture${index+1}_${n+1}`,false)).join('');
-      const shapes=page.lines.map(line=>{
-        const b=line.bbox,scale=page.scale;
+      const shapes=page.lines.filter(line=>!(line.runs||[line]).every(r=>r.rasterOnly)).map(line=>{
+        const sourceBoxes=!line.paragraphLines&&line.runs?.map(r=>r.bbox).filter(Boolean);
+        const b=sourceBoxes?.length?{x0:Math.min(...sourceBoxes.map(b=>b.x0)),y0:line.bbox.y0,x1:Math.max(...sourceBoxes.map(b=>b.x1)),y1:line.bbox.y1}:line.bbox,scale=page.scale;
         const x=Math.max(0,b.x0/scale),y=Math.max(0,b.y0/scale),height=(b.y1-b.y0)/scale;
         const estimated=(line.paragraphLines?(line.paragraphLines[0].bbox.y1-line.paragraphLines[0].bbox.y0)/scale:height)*(/[\u3400-\u9fff]/.test(line.text)?1.08:1.22);
         const size=Math.max(line.fontFamily?1:5,Math.min(line.fontFamily?400:72,line.fontSize||estimated));

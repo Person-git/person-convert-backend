@@ -33,3 +33,5 @@ const files={};class Zip{file(name,value,options){files[name]={value,options};}a
  assert.equal(fidelity.footerLines([makeLine('Only line',780,9)],1,800).size,0,'Insufficient body evidence does not imply footer');
  console.log('Font names/styles, native geometry, image anchors, relationships, PNG packaging and output budget passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+const broken=[{bbox:{x0:10,y0:10,x1:80,y1:25},runs:[{text:'one',confidence:99,fontSize:12,bbox:{x0:40,y0:10,x1:60,y1:25}},{text:'two',confidence:99,fontSize:12,bbox:{x0:20,y0:10,x1:35,y1:25}}]}];assert.equal(fidelity.prepareOcrOverlay(broken,1).retained,2);assert(broken[0].runs.every(r=>r.rasterOnly&&r.retainedReason==='字詞位置不可靠'));
