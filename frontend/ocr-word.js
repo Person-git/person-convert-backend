@@ -8,19 +8,34 @@
   };
   function reviewWords(blocks,page,height,lines=[]){
     const key=b=>b?`${b.x0},${b.y0},${b.x1},${b.y1}`:'';
-    const retained=new Map(lines.flatMap(l=>l.runs||[]).filter(r=>r.rasterOnly).map(r=>[key(r.bbox),r.retainedReason||'保留原圖']));
+    const retained=new Map(lines.flatMap(l=>l.runs||[l]).filter(r=>r.rasterOnly).map(r=>[key(r.bbox),r.retainedReason||'保留原圖']));
     const seen=new Set(),items=[];
-    for(const block of blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[])for(const word of line.words||[]){
-      const text=word.text?.trim(),confidence=word.confidence;
-      if(!text||!/[\p{L}\p{N}]/u.test(text)||!Number.isFinite(confidence)||confidence>=80)continue;
-      const identity=key(word.bbox)+'|'+text;if(seen.has(identity))continue;seen.add(identity);
-      items.push({page,text:text.slice(0,120),confidence:Math.max(0,Math.min(100,Math.round(confidence))),position:word.bbox&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:retained.get(key(word.bbox))||null,bbox:word.bbox?{...word.bbox}:null,contextBox:line.bbox?{...line.bbox}:word.bbox?{...word.bbox}:null,contextText:(line.text||line.words?.map(w=>w.text).join(" ")||text).slice(0,400)});
+    for(const block of blocks||[])for(const paragraph of block.paragraphs||[])for(const line of paragraph.lines||[]){
+      const crowded=new Set(),words=line.words||[];
+      // Only substantial source-box overlap, not normal tight spacing. This
+      // is a source-geometry hint, never a claim about rendered Word output.
+      const ordered=words.filter(w=>validBox(w.bbox)).slice().sort((a,b)=>a.bbox.x0-b.bbox.x0);
+      for(let i=0;i<ordered.length;i++)for(let j=i+1;j<Math.min(ordered.length,i+65)&&ordered[j].bbox.x0<ordered[i].bbox.x1;j++){
+        const a=ordered[i].bbox,b=ordered[j].bbox;if(key(a)===key(b)&&ordered[i].text===ordered[j].text)continue;
+        if(Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)>Math.max(1,Math.min(a.x1-a.x0,b.x1-b.x0)*.08)&&Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)>Math.min(a.y1-a.y0,b.y1-b.y0)*.5){crowded.add(ordered[i]);crowded.add(ordered[j]);}
+      }
+      for(const word of words){
+        const text=word.text?.trim(),confidence=word.confidence,keep=retained.get(key(word.bbox))||null;
+        const low=Number.isFinite(confidence)&&confidence<80&&/[\p{L}\p{N}]/u.test(text||'');
+        if(!text||(!low&&!keep&&!crowded.has(word)))continue;
+        const identity=key(word.bbox)+'|'+text;if(seen.has(identity))continue;seen.add(identity);
+        items.push({page,text:text.slice(0,120),confidence:Number.isFinite(confidence)?Math.max(0,Math.min(100,Math.round(confidence))):null,position:validBox(word.bbox)&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:keep,reasons:[...(low?['low']:[]),...(keep?['retained']:[]),...(crowded.has(word)?['crowded']:[])],bbox:validBox(word.bbox)?{...word.bbox}:null,contextBox:validBox(line.bbox)?{...line.bbox}:validBox(word.bbox)?{...word.bbox}:null,contextText:(line.text||words.map(w=>w.text).join(' ')||text).slice(0,400)});
+      }
     }
     return items;
   }
+  function validBox(b){return b&&['x0','y0','x1','y1'].every(k=>Number.isFinite(b[k]))&&b.x1>b.x0&&b.y1>b.y0;}
+  function reviewReasons(item){return item.reasons||[...(item.confidence!==null&&item.confidence<80?['low']:[]),...(item.retained?['retained']:[])];}
+  function reviewCounts(items){const counts={low:0,retained:0,crowded:0};for(const item of items)for(const reason of reviewReasons(item))if(reason in counts)counts[reason]++;return counts;}
+  function reviewNote(item){return reviewReasons(item).map(reason=>({low:'低信心',retained:`${item.retained||'保留原圖'}，保留原圖不可編輯`,crowded:'來源字框可能擁擠（非 Word 渲染判定）'}[reason])).filter(Boolean).join(' · ');}
   function reviewPriority(text){return /\d|^(?:mg|kg|mm|cm|ml|mL|µg|μg|mmHg|kPa|°C|%)$/i.test(text)?0:/^[A-Z][A-Za-z-]{2,}$/.test(text)?1:2;}
   function reviewText(review){
-    return ['OCR 校對清單',`共 ${review.total} 個低信心字詞；列出 ${review.items.length} 個。`, `OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`, '信心分數不是正確率；未標示不代表正確，數字、單位與專有名詞仍需核對。',...review.items.map(r=>`第 ${r.page} 頁 · 距頂端 ${r.position??'?'}% · 信心 ${r.confidence}/100 · ${r.text} · ${r.retained?`${r.retained}，保留原圖不可編輯`:'文字輸出，請核對'}`)].join('\n');
+    return ['OCR 校對清單',`共 ${review.total} 個待校對項目；列出 ${review.items.length} 個。`, `OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`, '信心分數不是正確率；未標示不代表正確，數字、單位與專有名詞仍需核對。',...review.items.map(r=>`第 ${r.page} 頁 · 距頂端 ${r.position??'?'}% · 信心 ${r.confidence===null?'未提供':r.confidence+'/100'} · ${r.text} · ${reviewNote(r)}`)].join('\n');
   }
   function clearReview(){
     const panel=document.getElementById('ocr-review');if(!panel)return;
@@ -28,20 +43,26 @@
     document.getElementById('ocr-review-list').replaceChildren();
     document.getElementById('ocr-review-summary').textContent='OCR 校對清單';
     document.getElementById('btn-review-download').onclick=null;
+    const filter=document.getElementById('ocr-review-filter');if(filter){filter.value='all';filter.onchange=null;}
   }
   function showReview(review,name){
     const panel=document.getElementById('ocr-review');if(!panel)return;
     const list=document.getElementById('ocr-review-list');list.replaceChildren();
-    document.getElementById('ocr-review-summary').textContent=review.total?`建議校對 ${review.total} 個字詞（列出 ${review.items.length} 個）`:review.unavailable?'OCR 校對清單：部分頁面未取得信心資料':review.pages?'OCR 校對清單：未偵測到低信心字詞':'本次使用原文字層，未執行 OCR 校對';
+    document.getElementById('ocr-review-summary').textContent=review.total?`建議校對 ${review.total} 個項目（列出 ${review.items.length} 個）`:review.unavailable?'OCR 校對清單：部分頁面未取得信心資料':review.pages?'OCR 校對清單：未偵測到待校對項目':'本次使用原文字層，未執行 OCR 校對';
     document.getElementById('ocr-review-coverage').textContent=`OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`;
-    for(const item of [...review.items].sort((a,b)=>reviewPriority(a.text)-reviewPriority(b.text)||a.confidence-b.confidence)){
+    const counts=review.counts||reviewCounts(review.items),filter=document.getElementById('ocr-review-filter');
+    document.getElementById('ocr-review-coverage').textContent+=` 低信心 ${counts.low}、保留原圖 ${counts.retained}、來源字框可能擁擠 ${counts.crowded}；同一項目可有多種提示。`;
+    const render=()=>{list.replaceChildren();const selected=filter?.value||'all';
+    for(const item of [...review.items].filter(item=>selected==='all'||reviewReasons(item).includes(selected)).sort((a,b)=>reviewPriority(a.text)-reviewPriority(b.text)||(a.confidence??100)-(b.confidence??100))){
       const row=document.createElement('li'),location=document.createElement('span'),word=document.createElement('mark'),note=document.createElement('span');
       location.textContent=`第 ${item.page} 頁 · 距頂端 ${item.position??'?'}% · `;
       word.textContent=item.text;
-      note.textContent=` · 信心 ${item.confidence}/100${item.retained?` · ${item.retained}，保留原圖不可編輯`:''}`;
+      note.textContent=` · 信心 ${item.confidence===null?'未提供':item.confidence+'/100'} · ${reviewNote(item)}`;
       row.append(location,word,note);
       if(item.image){const details=document.createElement('details'),summary=document.createElement('summary'),image=document.createElement('img');summary.textContent='查看原圖與上下文';image.className='ocr-source';image.src=item.image;image.alt=`第 ${item.page} 頁原圖字詞局部`;image.loading='lazy';details.append(summary,image);if(item.contextImage){const context=document.createElement('img');context.src=item.contextImage;context.alt=`第 ${item.page} 頁同列上下文`;context.className='review-context';context.loading='lazy';details.append(context);}const contextText=document.createElement('p');contextText.textContent='同列辨識（仍可能有誤）：'+(item.contextText||item.text);details.append(contextText);row.append(details);}list.appendChild(row);
     }
+    if(!list.children.length){const empty=document.createElement('li');empty.textContent='目前列出的項目中沒有此類提示；若已達 200 項上限，其他項目可能未列出。';list.append(empty);}
+    };if(filter){filter.value='all';filter.onchange=render;}render();
     document.getElementById('btn-review-download').onclick=()=>{
       const url=URL.createObjectURL(new Blob([reviewText(review)],{type:'text/plain;charset=utf-8'})),link=document.createElement('a');
       link.href=url;link.download=name.replace(/\.pdf$/i,'')+'-review.txt';document.body.appendChild(link);link.click();link.remove();root.AppTasks?.downloaded();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -130,7 +151,7 @@
           review.pages=(review.pages||0)+1;
           const hasScores=(result.data.blocks||[]).some(b=>(b.paragraphs||[]).some(p=>(p.lines||[]).some(l=>(l.words||[]).some(w=>Number.isFinite(w.confidence)))));
           if(!hasScores)review.unavailable=(review.unavailable||0)+1;
-          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines);review.total+=items.length;
+          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines);review.total+=items.length;const counts=reviewCounts(items);review.counts=review.counts||{low:0,retained:0,crowded:0};for(const key of Object.keys(counts))review.counts[key]+=counts[key];
           const kept=items.slice(0,Math.max(0,200-review.items.length));
           if(typeof document!=='undefined'&&root.WorkspaceTools){for(const item of kept){
             if((review.imageBytes||0)>=2*1024*1024)break;
@@ -238,7 +259,7 @@
       }
     };
   }
-  const api={escapeXml,documentXml,createDocx,recognizePages,abortable,reviewWords,reviewText,clearReview,reviewPriority};
+  const api={escapeXml,documentXml,createDocx,recognizePages,abortable,reviewWords,reviewText,clearReview,reviewPriority,reviewCounts,reviewReasons,reviewNote,showReview};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else{root.OCRWord=api;document.addEventListener('DOMContentLoaded',init,{once:true});}
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -1,0 +1,335 @@
+{
+  "description": "Public synthetic regression cases. No private IFU content. Expected geometry is manually specified, not a pixel-perfect Word baseline.",
+  "cases": [
+    {
+      "name": "latin-emphasis",
+      "page": {
+        "width": 600,
+        "height": 800,
+        "scale": 1,
+        "lines": [
+          {
+            "text": "Normal Bold Italic Both",
+            "fontSize": 12,
+            "fontFamily": "Times New Roman",
+            "bbox": {
+              "x0": 20,
+              "y0": 60,
+              "x1": 360,
+              "y1": 74
+            },
+            "runs": [
+              {
+                "text": "Normal",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 20,
+                  "y0": 60,
+                  "x1": 65,
+                  "y1": 74
+                }
+              },
+              {
+                "text": "Bold",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 75,
+                  "y0": 60,
+                  "x1": 110,
+                  "y1": 74
+                },
+                "bold": true
+              },
+              {
+                "text": "Italic",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 120,
+                  "y0": 60,
+                  "x1": 160,
+                  "y1": 74
+                },
+                "italic": true
+              },
+              {
+                "text": "Both",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 170,
+                  "y0": 60,
+                  "x1": 205,
+                  "y1": 74
+                },
+                "bold": true,
+                "italic": true
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "starts": [
+          20
+        ],
+        "bold": 2,
+        "italic": 2,
+        "fonts": [
+          "Times New Roman"
+        ],
+        "texts": [
+          "Normal",
+          "Bold",
+          "Italic",
+          "Both"
+        ]
+      }
+    },
+    {
+      "name": "cjk-mixed",
+      "page": {
+        "width": 600,
+        "height": 800,
+        "scale": 1,
+        "lines": [
+          {
+            "text": "繁體中文 简体中文 混合123",
+            "fontSize": 12,
+            "fontFamily": "Microsoft JhengHei",
+            "bbox": {
+              "x0": 20,
+              "y0": 60,
+              "x1": 360,
+              "y1": 74
+            },
+            "runs": [
+              {
+                "text": "繁體中文",
+                "confidence": 98,
+                "fontFamily": "Microsoft JhengHei",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 20,
+                  "y0": 60,
+                  "x1": 80,
+                  "y1": 74
+                }
+              },
+              {
+                "text": "简体中文",
+                "confidence": 98,
+                "fontFamily": "Microsoft JhengHei",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 85,
+                  "y0": 60,
+                  "x1": 145,
+                  "y1": 74
+                }
+              },
+              {
+                "text": "混合123",
+                "confidence": 98,
+                "fontFamily": "Microsoft JhengHei",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 150,
+                  "y0": 60,
+                  "x1": 220,
+                  "y1": 74
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "starts": [
+          20
+        ],
+        "bold": 0,
+        "italic": 0,
+        "fonts": [
+          "Microsoft JhengHei"
+        ],
+        "texts": [
+          "繁體中文",
+          "简体中文",
+          "混合123"
+        ]
+      }
+    },
+    {
+      "name": "raster-boundaries",
+      "page": {
+        "width": 600,
+        "height": 800,
+        "scale": 1,
+        "lines": [
+          {
+            "text": "Before ◆ After keep End",
+            "fontSize": 12,
+            "fontFamily": "Times New Roman",
+            "bbox": {
+              "x0": 20,
+              "y0": 60,
+              "x1": 360,
+              "y1": 74
+            },
+            "runs": [
+              {
+                "text": "Before",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 20,
+                  "y0": 60,
+                  "x1": 65,
+                  "y1": 74
+                }
+              },
+              {
+                "text": "◆",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 75,
+                  "y0": 60,
+                  "x1": 88,
+                  "y1": 74
+                },
+                "rasterOnly": true
+              },
+              {
+                "text": "After",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 100,
+                  "y0": 60,
+                  "x1": 138,
+                  "y1": 74
+                }
+              },
+              {
+                "text": "keep",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 145,
+                  "y0": 60,
+                  "x1": 175,
+                  "y1": 74
+                },
+                "rasterOnly": true
+              },
+              {
+                "text": "End",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 190,
+                  "y0": 60,
+                  "x1": 215,
+                  "y1": 74
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "starts": [
+          20,
+          100,
+          190
+        ],
+        "bold": 0,
+        "italic": 0,
+        "fonts": [
+          "Times New Roman"
+        ],
+        "texts": [
+          "Before",
+          "After",
+          "End"
+        ],
+        "absent": [
+          "◆",
+          "keep"
+        ]
+      }
+    },
+    {
+      "name": "independent-picture",
+      "page": {
+        "width": 600,
+        "height": 800,
+        "scale": 1,
+        "lines": [
+          {
+            "text": "Caption",
+            "fontSize": 12,
+            "fontFamily": "Times New Roman",
+            "bbox": {
+              "x0": 20,
+              "y0": 60,
+              "x1": 360,
+              "y1": 74
+            },
+            "runs": [
+              {
+                "text": "Caption",
+                "confidence": 98,
+                "fontFamily": "Times New Roman",
+                "fontSize": 12,
+                "bbox": {
+                  "x0": 20,
+                  "y0": 60,
+                  "x1": 70,
+                  "y1": 74
+                }
+              }
+            ]
+          }
+        ],
+        "pictures": [
+          {
+            "x": 250,
+            "y": 100,
+            "width": 40,
+            "height": 30,
+            "image": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGNQKDigUHCAAUIBACJOBUFep0TqAAAAAElFTkSuQmCC"
+          }
+        ]
+      },
+      "expected": {
+        "starts": [
+          20
+        ],
+        "bold": 0,
+        "italic": 0,
+        "fonts": [
+          "Times New Roman"
+        ],
+        "texts": [
+          "Caption"
+        ],
+        "pictures": 1
+      }
+    }
+  ],
+  "sampleSha256": "a5a40c6e96176f9a12b2625efb403356b8e583023a24c9bbcada788fec6aa6ea"
+}

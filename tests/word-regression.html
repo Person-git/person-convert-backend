@@ -1,0 +1,39 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8">
+<title>Word 公開固定回歸樣本</title>
+<style>body{font:16px system-ui;max-width:800px;margin:40px auto;padding:20px;color:#163047}button{padding:12px 20px}canvas{max-width:100%;border:1px solid #ddd}</style>
+<h1>Word 公開固定回歸樣本</h1>
+<p>只使用公開合成文字。第 1 頁為原生文字、粗斜體與獨立圖片；第 2 頁為中英文掃描圖片與頁尾。請下載後用平台的自動／OCR、保留外觀及快速文字模式比對。</p>
+<p>這不是 Word 渲染器。字型、換行與原圖交界仍需在 Word 中檢查；測試結果不得取代實際視覺檢查。</p>
+<button id="download">下載固定測試 PDF</button><p id="status" role="status">尚未產生</p><canvas id="preview" width="1200" height="1600"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+document.getElementById('download').onclick=async()=>{
+ const status=document.getElementById('status'),button=document.getElementById('download');button.disabled=true;
+ try{
+  const pdf=await PDFLib.PDFDocument.create();pdf.setTitle('Public Word regression sample');pdf.setCreationDate(new Date('2026-10-21T00:00:00Z'));pdf.setModificationDate(new Date('2026-10-21T00:00:00Z'));
+  const fonts=await Promise.all(['TimesRoman','TimesRomanBold','TimesRomanItalic','TimesRomanBoldItalic'].map(name=>pdf.embedFont(PDFLib.StandardFonts[name]))),page=pdf.addPage([600,800]);
+  const text=(s,x,y,size=14,font=fonts[0])=>page.drawText(s,{x,y:800-y,size,font});
+  text('Public Word regression sample',30,60,22,fonts[1]);
+  text('Normal text. Numbers 123.45 and units 10 mg / 5 mL.',30,110);
+  text('Bold text remains bold.',30,145,16,fonts[1]);
+  text('Italic text remains italic.',30,180,16,fonts[2]);
+  text('Bold italic text remains bold italic.',30,215,16,fonts[3]);
+  for(let i=0;i<4;i++)text('A regular paragraph line with the same font and source width.',30,270+i*20,12);
+  const picture=document.createElement('canvas');picture.width=160;picture.height=100;const pc=picture.getContext('2d');pc.fillStyle='#fff';pc.fillRect(0,0,160,100);pc.fillStyle='#2675c8';pc.fillRect(12,12,85,75);pc.fillStyle='#f0b529';pc.beginPath();pc.arc(112,50,29,0,Math.PI*2);pc.fill();
+  const icon=await pdf.embedPng(picture.toDataURL());page.drawImage(icon,{x:50,y:310,width:160,height:100});text('Independent picture and caption',30,530,13,fonts[2]);text('Public footer 01',30,765,9);
+  const canvas=document.getElementById('preview'),c=canvas.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,1200,1600);c.save();c.scale(2,2);
+  const draw=(s,y,font='20px "Microsoft JhengHei",Arial')=>{c.font=font;c.fillStyle='#162c40';c.fillText(s,30,y);};
+  draw('中文 OCR 固定回歸樣本',60,'bold 25px "Microsoft JhengHei",Arial');
+  draw('繁體中文：測試文字與數字 123。',115);draw('简体中文：测试文字和数字 456。',155);
+  draw('Normal editable text with numbers 12.5 mg.',215,'20px "Times New Roman"');
+  draw('Bold sample keeps its emphasis.',255,'bold 20px "Times New Roman"');
+  draw('Italic sample keeps its emphasis.',295,'italic 20px "Times New Roman"');
+  draw('Bold italic sample with mixed words.',335,'bold italic 20px "Times New Roman"');
+  draw('◆ A symbol beside editable words.',395,'20px "Times New Roman"');
+  c.drawImage(picture,30,445);draw('圖片與文字應各自保留，不可重複。',595);
+  draw('Public footer 02',765,'11px Arial');c.restore();
+  const scan=pdf.addPage([600,800]),image=await pdf.embedPng(canvas.toDataURL());scan.drawImage(image,{x:0,y:0,width:600,height:800});
+  const blob=new Blob([await pdf.save()],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='word-regression-sample.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='已產生 2 頁公開合成 PDF。請保存於 tests/fixtures/，後續使用相同檔案回歸，不要每次重新產生。';
+ }catch(e){status.textContent='產生失敗：'+e.message;}finally{button.disabled=false;}
+};
+</script></html>

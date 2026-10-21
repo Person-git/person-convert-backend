@@ -13,22 +13,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=23"></script>
-<script src="lazy-pdf.js?v=23"></script>
-<script src="workspace-tools.js?v=23"></script>
-<script src="word-trial.js?v=23"></script>
-<script src="text-color.js?v=23"></script>
-<script src="page-structure.js?v=23"></script>
-<script src="ocr-layout.js?v=23"></script>
-<script src="ocr-style.js?v=23"></script>
-<script src="ocr-flow.js?v=23"></script>
-<script src="pdf-fidelity.js?v=23"></script>
-<script src="word-geometry.js?v=23"></script>
-<script src="pdf-guide.js?v=23"></script>
-<script src="ocr-word.js?v=23"></script>
-<script src="local-convert.js?v=23"></script>
-<script src="protect-pdf.js?v=23"></script>
-<script src="local-compress.js?v=23"></script>
+<script src="app-core.js?v=24"></script>
+<script src="lazy-pdf.js?v=24"></script>
+<script src="workspace-tools.js?v=24"></script>
+<script src="word-trial.js?v=24"></script>
+<script src="text-color.js?v=24"></script>
+<script src="page-structure.js?v=24"></script>
+<script src="ocr-layout.js?v=24"></script>
+<script src="ocr-style.js?v=24"></script>
+<script src="ocr-flow.js?v=24"></script>
+<script src="pdf-fidelity.js?v=24"></script>
+<script src="word-geometry.js?v=24"></script>
+<script src="pdf-guide.js?v=24"></script>
+<script src="ocr-word.js?v=24"></script>
+<script src="local-convert.js?v=24"></script>
+<script src="protect-pdf.js?v=24"></script>
+<script src="local-compress.js?v=24"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -535,8 +535,8 @@
     <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
     <div class="status" id="status-docx" role="status" aria-live="polite"></div>
     <details class="ocr-review" id="ocr-review" hidden><summary id="ocr-review-summary">OCR 校對清單</summary>
-      <p>以下是 OCR 信心低於 80 的字詞，分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。清單優先排列數字／常見單位，其次為大寫開頭的可能名稱（僅為提示）。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
-      <p id="ocr-review-coverage"></p><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
+      <p>列出低信心字詞、保留原圖內容及來源字框可能擁擠的項目。字框提示依原 PDF／OCR 座標估算，並非 Word 實際渲染結果；信心分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。清單優先排列數字／常見單位，其次為大寫開頭的可能名稱（僅為提示）。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
+      <p id="ocr-review-coverage"></p><label for="ocr-review-filter">顯示項目</label> <select id="ocr-review-filter"><option value="all">全部提示</option><option value="low">低信心</option><option value="retained">保留原圖（不可編輯）</option><option value="crowded">來源字框可能擁擠</option></select><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
       <p class="desc">清單最多列出 200 個字詞；只保留在目前頁面，重選、移除檔案或開始下一次轉換即清除，不會上傳。</p>
     </details>
   </section>
@@ -2029,7 +2029,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v23');
+      const cache=await caches.open('person-convert-pwa-v24');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
