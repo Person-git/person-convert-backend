@@ -13,22 +13,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=18"></script>
-<script src="lazy-pdf.js?v=18"></script>
-<script src="workspace-tools.js?v=18"></script>
-<script src="word-trial.js?v=18"></script>
-<script src="text-color.js?v=18"></script>
-<script src="page-structure.js?v=18"></script>
-<script src="ocr-layout.js?v=18"></script>
-<script src="ocr-style.js?v=18"></script>
-<script src="ocr-flow.js?v=18"></script>
-<script src="pdf-fidelity.js?v=18"></script>
-<script src="word-geometry.js?v=18"></script>
-<script src="pdf-guide.js?v=18"></script>
-<script src="ocr-word.js?v=18"></script>
-<script src="local-convert.js?v=18"></script>
-<script src="protect-pdf.js?v=18"></script>
-<script src="local-compress.js?v=18"></script>
+<script src="app-core.js?v=19"></script>
+<script src="lazy-pdf.js?v=19"></script>
+<script src="workspace-tools.js?v=19"></script>
+<script src="word-trial.js?v=19"></script>
+<script src="text-color.js?v=19"></script>
+<script src="page-structure.js?v=19"></script>
+<script src="ocr-layout.js?v=19"></script>
+<script src="ocr-style.js?v=19"></script>
+<script src="ocr-flow.js?v=19"></script>
+<script src="pdf-fidelity.js?v=19"></script>
+<script src="word-geometry.js?v=19"></script>
+<script src="pdf-guide.js?v=19"></script>
+<script src="ocr-word.js?v=19"></script>
+<script src="local-convert.js?v=19"></script>
+<script src="protect-pdf.js?v=19"></script>
+<script src="local-compress.js?v=19"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -512,7 +512,7 @@
     <div class="row"><div class="field page-selection"><label for="docx-pages">指定頁面（留空＝全部，例：1,3,5-7）</label><input id="docx-pages" type="text" placeholder="依輸入順序，重複頁碼只輸出一次"></div></div>
     <div class="pdf-guidance" id="guide-docx" role="status" aria-live="polite"></div>
     <div class="row">
-      <div class="field"><label for="docx-mode">處理方式</label><select id="docx-mode" style="width:300px"><option value="auto">自動判斷（建議，本機）</option><option value="local">直接擷取文字（本機）</option><option value="ocr">使用 OCR（本機）</option><option value="layout">進階排版（後端，會上傳檔案）</option></select></div>
+      <div class="field"><label for="docx-mode">處理方式</label><select id="docx-mode" style="width:300px"><option value="auto">自動判斷（建議，本機）</option><option value="local">直接擷取文字（本機）</option><option value="ocr">使用 OCR（本機）</option><option value="layout">進階排版（後端，僅文字型 PDF，無 OCR，會上傳）</option></select></div>
     </div>
     <div class="row" id="word-ocr-options" hidden>
       <div class="field"><label for="ocr-language">OCR 辨識語言</label><select id="ocr-language" style="width:200px"><option value="chi_tra+eng">繁體中文＋英文</option><option value="chi_sim+eng">簡體中文＋英文</option><option value="eng">英文</option></select></div>
@@ -524,6 +524,7 @@
         <label class="quality-card"><input type="radio" name="word-quality" id="word-look" value="look"><span>保留外觀（實驗版）<small>校正替代字型與文字寬度；白底且可安全分離的圖片輸出獨立物件，規則文字嘗試合併段落。處理較慢，部分內容仍為圖片。</small></span></label>
       </div><span hidden><input type="checkbox" id="word-preserve" aria-hidden="true" tabindex="-1"></span>
     </fieldset>
+    <p class="desc">不確定時請選「自動判斷（本機）」。OCR 固定在瀏覽器處理、不上傳；後端排版不含 OCR，只適合有可用文字層、且願意上傳的 PDF。</p>
     <div class="desc" id="word-mode-help" style="margin-top:12px">可編輯文字版保留分頁，不還原原排版、表格與圖片。</div>
     <div class="row">
       <button class="run" id="btn-word-trial" disabled>先試轉一頁（本機）</button>
@@ -2028,7 +2029,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v18');
+      const cache=await caches.open('person-convert-pwa-v19');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

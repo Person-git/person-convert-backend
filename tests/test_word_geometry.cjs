@@ -16,3 +16,13 @@ global.OCRLayout=layout;const files={};class Zip{file(n,v,o){files[n]={v,o};}asy
 (async()=>{await ocr.createDocx([images],Zip,true);assert(files['word/media/picture-1-1.png'].o.base64);assert(files['word/_rels/document.xml.rels'].v.includes('Id="rPicture1_1"'));await assert.rejects(ocr.createDocx([{...images,pictures:[{...picture,image:'x'.repeat(42*1024*1024)}]}],Zip,true),/30 MB/);console.log('Font substitution, width calibration, conservative paragraph barriers, image borders, unique image relationships and output budget passed');})().catch(e=>{console.error(e);process.exitCode=1;});
 
 const fs=require('node:fs');for(const path of ['frontend/local-convert.js','frontend/ocr-word.js'])assert(fs.readFileSync(path,'utf8').includes('WordGeometry.improve('),'Both native and OCR conversion paths must run reconstruction');
+
+// Retained graphics still occupy their original horizontal slot. A plain space
+// without fitText collapses, shifting every following editable word to the left.
+for(const retained of [[0],[1],[2],[0,1],[1,2]]){
+ const runs=['LEFT','ICON','RIGHT'].map((text,i)=>({text,fontFamily:'Arial',fontSize:10,rasterOnly:retained.includes(i),bbox:{x0:10+i*50,y0:20,x1:50+i*50,y1:32}}));
+ const xml=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'LEFT ICON RIGHT',bbox:{x0:10,y0:20,x1:150,y1:32},fontSize:10,runs}]}]);
+ assert.equal((xml.match(/<w:fitText /g)||[]).length,3,'Every retained slot must reserve source width');
+ const widths=[...xml.matchAll(/<w:fitText w:val="(\d+)"/g)].map(m=>Number(m[1]));assert.deepEqual(widths,[1000,1000,800]);
+ retained.forEach(i=>assert(!xml.includes('>'+runs[i].text+'<'),'Retained words must not also print editable text'));
+}
