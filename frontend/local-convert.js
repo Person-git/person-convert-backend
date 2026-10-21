@@ -80,7 +80,7 @@
       AppTasks.phase('產生下載檔案');
       if(kind==='docx'){
         if(!textCount)throw new Error('沒有可選取文字，請改用 OCR → Word');
-        const blob=await OCRWord.createDocx(texts,JSZip,preserve);if(options.trial)await root.WordTrial.show(file,numbers[0],texts[0],preserve,blob);else download(blob,preserve?'images-fonts.docx':'text-converted.docx');
+        const blob=await OCRWord.createDocx(texts,JSZip,preserve);if(options.trial)await root.WordTrial.show(file,numbers[0],texts[0],preserve,blob);else if(root.WordSession)root.WordSession.publish(blob,file.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':'-text.docx'));else download(blob,preserve?'images-fonts.docx':'text-converted.docx');
       }else if(sheets){
         if(!textCount)throw new Error('沒有可擷取的文字，掃描圖片與輪廓文字需先 OCR');
         download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');

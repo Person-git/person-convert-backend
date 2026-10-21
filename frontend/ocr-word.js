@@ -6,7 +6,7 @@
     corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',
     langPath:'https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@87416418657359cb625c412a48b6e1d6d41c29bd',gzip:false
   };
-  function reviewWords(blocks,page,height,lines=[]){
+  function reviewWords(blocks,page,height,lines=[],width=null){
     const key=b=>b?`${b.x0},${b.y0},${b.x1},${b.y1}`:'';
     const retained=new Map(lines.flatMap(l=>l.runs||[l]).filter(r=>r.rasterOnly).map(r=>[key(r.bbox),r.retainedReason||'保留原圖']));
     const seen=new Set(),items=[];
@@ -24,7 +24,7 @@
         const low=Number.isFinite(confidence)&&confidence<80&&/[\p{L}\p{N}]/u.test(text||'');
         if(!text||(!low&&!keep&&!crowded.has(word)))continue;
         const identity=key(word.bbox)+'|'+text;if(seen.has(identity))continue;seen.add(identity);
-        items.push({page,text:text.slice(0,120),confidence:Number.isFinite(confidence)?Math.max(0,Math.min(100,Math.round(confidence))):null,position:validBox(word.bbox)&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:keep,reasons:[...(low?['low']:[]),...(keep?['retained']:[]),...(crowded.has(word)?['crowded']:[])],bbox:validBox(word.bbox)?{...word.bbox}:null,contextBox:validBox(line.bbox)?{...line.bbox}:validBox(word.bbox)?{...word.bbox}:null,contextText:(line.text||words.map(w=>w.text).join(' ')||text).slice(0,400)});
+        items.push({page,sourceWidth:width,sourceHeight:height,text:text.slice(0,120),confidence:Number.isFinite(confidence)?Math.max(0,Math.min(100,Math.round(confidence))):null,position:validBox(word.bbox)&&height>0?Math.max(0,Math.min(100,Math.round(word.bbox.y0/height*100))):null,retained:keep,reasons:[...(low?['low']:[]),...(keep?['retained']:[]),...(crowded.has(word)?['crowded']:[])],bbox:validBox(word.bbox)?{...word.bbox}:null,contextBox:validBox(line.bbox)?{...line.bbox}:validBox(word.bbox)?{...word.bbox}:null,contextText:(line.text||words.map(w=>w.text).join(' ')||text).slice(0,400)});
       }
     }
     return items;
@@ -38,6 +38,7 @@
     return ['OCR 校對清單',`共 ${review.total} 個待校對項目；列出 ${review.items.length} 個。`, `OCR 檢查 ${review.pages||0} 頁；${review.unavailable||0} 頁未取得信心資料。原文字層略過 OCR 的頁面不在此檢查範圍。`, '信心分數不是正確率；未標示不代表正確，數字、單位與專有名詞仍需核對。',...review.items.map(r=>`第 ${r.page} 頁 · 距頂端 ${r.position??'?'}% · 信心 ${r.confidence===null?'未提供':r.confidence+'/100'} · ${r.text} · ${reviewNote(r)}`)].join('\n');
   }
   function clearReview(){
+    root.WordSession?.closePreview();
     const panel=document.getElementById('ocr-review');if(!panel)return;
     panel.hidden=true;panel.open=false;
     document.getElementById('ocr-review-list').replaceChildren();
@@ -59,6 +60,7 @@
       word.textContent=item.text;
       note.textContent=` · 信心 ${item.confidence===null?'未提供':item.confidence+'/100'} · ${reviewNote(item)}`;
       row.append(location,word,note);
+      if(root.WordSession?.highlightBox(item)){const locate=document.createElement('button');locate.type='button';locate.className='preview-button';locate.textContent='在原頁定位';locate.onclick=()=>void root.WordSession.locate(item);row.append(locate);}
       if(item.image){const details=document.createElement('details'),summary=document.createElement('summary'),image=document.createElement('img');summary.textContent='查看原圖與上下文';image.className='ocr-source';image.src=item.image;image.alt=`第 ${item.page} 頁原圖字詞局部`;image.loading='lazy';details.append(summary,image);if(item.contextImage){const context=document.createElement('img');context.src=item.contextImage;context.alt=`第 ${item.page} 頁同列上下文`;context.className='review-context';context.loading='lazy';details.append(context);}const contextText=document.createElement('p');contextText.textContent='同列辨識（仍可能有誤）：'+(item.contextText||item.text);details.append(contextText);row.append(details);}list.appendChild(row);
     }
     if(!list.children.length){const empty=document.createElement('li');empty.textContent='目前列出的項目中沒有此類提示；若已達 200 項上限，其他項目可能未列出。';list.append(empty);}
@@ -151,7 +153,7 @@
           review.pages=(review.pages||0)+1;
           const hasScores=(result.data.blocks||[]).some(b=>(b.paragraphs||[]).some(p=>(p.lines||[]).some(l=>(l.words||[]).some(w=>Number.isFinite(w.confidence)))));
           if(!hasScores)review.unavailable=(review.unavailable||0)+1;
-          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines);review.total+=items.length;const counts=reviewCounts(items);review.counts=review.counts||{low:0,retained:0,crowded:0};for(const key of Object.keys(counts))review.counts[key]+=counts[key];
+          const items=reviewWords(result.data.blocks,number,canvas.height,reviewedLines,canvas.width);review.total+=items.length;const counts=reviewCounts(items);review.counts=review.counts||{low:0,retained:0,crowded:0};for(const key of Object.keys(counts))review.counts[key]+=counts[key];
           const kept=items.slice(0,Math.max(0,200-review.items.length));
           if(typeof document!=='undefined'&&root.WorkspaceTools){for(const item of kept){
             if((review.imageBytes||0)>=2*1024*1024)break;
@@ -191,7 +193,7 @@
     cancel.onclick=()=>controller?.abort();
     root.OCRWord.runFile=async(file,options={})=>{
       if(!file||controller)return;
-      clearReview();const review={total:0,items:[],pages:0,unavailable:0};
+      root.WordSession?.setFile(file);clearReview();const review={total:0,items:[],pages:0,unavailable:0};
       const outputMode=document.getElementById('ocr-output-mode');const preserve=document.getElementById('word-preserve').checked,layout=preserve||outputMode.value==='layout',reflow=outputMode.value!=='raw';outputMode.disabled=true;
       root.PdfGuide.clear(document.getElementById('guide-docx'));
       const language=document.getElementById('ocr-language');
@@ -236,7 +238,7 @@
         markStage('docx');root.AppTasks?.phase('產生 Word');phase='辨識完成，產生可編輯 Word';bar.removeAttribute('value');update();
         const blob=await abortable(createDocx(texts,root.JSZip,layout),signal);checkAbort(signal);
         markStage(null);
-        root.AppTasks?.check();if(options.trial){await root.WordTrial.show(selected,numbers[0],texts[0],layout,blob);}else{const url=URL.createObjectURL(blob),link=document.createElement('a');
+        root.AppTasks?.check();if(options.trial){await root.WordTrial.show(selected,numbers[0],texts[0],layout,blob);}else if(root.WordSession){root.WordSession.publish(blob,selected.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':layout?'-ocr-layout.docx':'-ocr.docx'));}else{const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download=selected.name.replace(/\.pdf$/i,'')+(preserve?'-images-fonts.docx':layout?'-ocr-layout.docx':'-ocr.docx');
         document.body.appendChild(link);link.click();link.remove();root.AppTasks?.downloaded();setTimeout(()=>URL.revokeObjectURL(url),1000);}
         showReview(review,selected.name);

@@ -13,22 +13,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=24"></script>
-<script src="lazy-pdf.js?v=24"></script>
-<script src="workspace-tools.js?v=24"></script>
-<script src="word-trial.js?v=24"></script>
-<script src="text-color.js?v=24"></script>
-<script src="page-structure.js?v=24"></script>
-<script src="ocr-layout.js?v=24"></script>
-<script src="ocr-style.js?v=24"></script>
-<script src="ocr-flow.js?v=24"></script>
-<script src="pdf-fidelity.js?v=24"></script>
-<script src="word-geometry.js?v=24"></script>
-<script src="pdf-guide.js?v=24"></script>
-<script src="ocr-word.js?v=24"></script>
-<script src="local-convert.js?v=24"></script>
-<script src="protect-pdf.js?v=24"></script>
-<script src="local-compress.js?v=24"></script>
+<script src="app-core.js?v=25"></script>
+<script src="lazy-pdf.js?v=25"></script>
+<script src="workspace-tools.js?v=25"></script>
+<script src="word-trial.js?v=25"></script>
+<script src="text-color.js?v=25"></script>
+<script src="page-structure.js?v=25"></script>
+<script src="ocr-layout.js?v=25"></script>
+<script src="ocr-style.js?v=25"></script>
+<script src="ocr-flow.js?v=25"></script>
+<script src="pdf-fidelity.js?v=25"></script>
+<script src="word-geometry.js?v=25"></script>
+<script src="pdf-guide.js?v=25"></script>
+<script src="word-session.js?v=25"></script>
+<script src="ocr-word.js?v=25"></script>
+<script src="local-convert.js?v=25"></script>
+<script src="protect-pdf.js?v=25"></script>
+<script src="local-compress.js?v=25"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -124,6 +125,8 @@
   .quality-card small{display:block;color:#607080;font-size:12px;margin-top:5px;line-height:1.6;}
   .ocr-review{margin-top:16px;padding:14px 16px;border:1px solid #e5cf8e;border-radius:10px;background:#fffdf4;font-size:13px;overflow-wrap:anywhere;}
   .ocr-review[hidden]{display:none;}
+  #ocr-page-canvas canvas{display:block;width:100%;max-width:900px;height:auto;border:1px solid #d3dbe6;}
+  #word-result a{text-decoration:none;display:inline-block;}
   .ocr-review summary{cursor:pointer;color:#785813;font-weight:600;}
   .ocr-review ol{max-height:320px;overflow:auto;padding-left:24px;}
   .ocr-review li{padding:7px 0;line-height:1.7;}
@@ -531,12 +534,14 @@
       <button class="run" id="btn-docx" disabled>轉換並下載 Word</button>
       <button class="run" id="btn-ocr-cancel" disabled>取消 OCR</button>
     </div>
+    <p class="desc"><span id="word-preference-note">僅記住語言與輸出偏好，文件不儲存。</span> <button type="button" class="preview-button" id="word-preference-reset">恢復預設偏好</button></p>
+    <div id="word-result" class="preview-panel" hidden><strong>上次轉換結果</strong><p id="word-result-name"></p><a class="run" id="word-result-download">再次下載 Word</a> <button type="button" class="preview-button" id="word-result-clear">清除結果</button><p class="desc">只保留在目前頁面的記憶體，沒有固定分鐘數。重新選檔、開始下一次轉換、重新整理、關閉或瀏覽器釋放此頁面後即消失；請及時下載。這個按鈕可在自動下載未成功時使用。</p></div>
     <div id="word-trial-panel" class="preview-panel" hidden></div>
     <progress class="conversion-progress" id="progress-ocr-word" max="100" hidden aria-label="OCR 進度"></progress>
     <div class="status" id="status-docx" role="status" aria-live="polite"></div>
     <details class="ocr-review" id="ocr-review" hidden><summary id="ocr-review-summary">OCR 校對清單</summary>
       <p>列出低信心字詞、保留原圖內容及來源字框可能擁擠的項目。字框提示依原 PDF／OCR 座標估算，並非 Word 實際渲染結果；信心分數不是正確率。請依頁碼及距頂端的位置對照原 PDF；未標示不代表正確，數字、單位與專有名詞仍需核對。清單優先排列數字／常見單位，其次為大寫開頭的可能名稱（僅為提示）。提示僅在此清單顯示，不改動 Word 內容，也不自動改字。</p>
-      <p id="ocr-review-coverage"></p><label for="ocr-review-filter">顯示項目</label> <select id="ocr-review-filter"><option value="all">全部提示</option><option value="low">低信心</option><option value="retained">保留原圖（不可編輯）</option><option value="crowded">來源字框可能擁擠</option></select><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
+      <div id="ocr-page-location" class="preview-panel" hidden role="region" aria-label="校對項目原頁定位"><button id="ocr-page-close" type="button" class="preview-button">關閉原頁</button><p id="ocr-page-caption" role="status" aria-live="polite"></p><div id="ocr-page-canvas"></div></div><p id="ocr-review-coverage"></p><label for="ocr-review-filter">顯示項目</label> <select id="ocr-review-filter"><option value="all">全部提示</option><option value="low">低信心</option><option value="retained">保留原圖（不可編輯）</option><option value="crowded">來源字框可能擁擠</option></select><ol id="ocr-review-list"></ol><button type="button" class="run" id="btn-review-download">下載校對清單 TXT</button>
       <p class="desc">清單最多列出 200 個字詞；只保留在目前頁面，重選、移除檔案或開始下一次轉換即清除，不會上傳。</p>
     </details>
   </section>
@@ -1264,7 +1269,7 @@ async function callBackendConvert(path, file, defaultFilename, queryParams='', o
   }
   const cd = xhr.getResponseHeader('Content-Disposition') || '';
   const match = cd.match(/filename="?([^"]+)"?/);
-  download(xhr.response, match ? match[1] : defaultFilename);
+  if(path==='/convert/pdf-to-docx'&&globalThis.WordSession)globalThis.WordSession.publish(xhr.response,match?match[1]:defaultFilename);else download(xhr.response, match ? match[1] : defaultFilename);
   const originalSize = xhr.getResponseHeader('X-Original-Size');
   const compressedSize = xhr.getResponseHeader('X-Compressed-Size');
   let detail = '';
@@ -1341,8 +1346,9 @@ function chooseWordFile(file){
   if(wordBusy||!file||(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)))return;
   if(file.size>50*1024*1024){setStatus('status-docx','請使用 50 MB 以下的 PDF',true);return;}
   OCRWord.clearReview?.();window.WordTrial?.clear();
+  window.WordSession?.setFile(file);
   const selection=++wordSelection;docxFile=file;wordChoice=null;
-  renderList('list-docx',[file],()=>{if(wordBusy)return;OCRWord.clearReview?.();window.WordTrial?.clear();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
+  renderList('list-docx',[file],()=>{if(wordBusy)return;window.WordSession?.clear();OCRWord.clearReview?.();window.WordTrial?.clear();wordSelection++;docxFile=null;wordChoice=null;document.getElementById('input-docx').value='';renderList('list-docx',[]);PdfGuide.clear(document.getElementById('guide-docx'));setStatus('status-docx','');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();});
   setStatus('status-docx','正在檢查文字層…');document.getElementById('progress-ocr-word').hidden=true;updateWordOptions();
   const select=mode=>{if(wordBusy)return;wordMode.value=mode;updateWordOptions();wordButton.focus();};
   wordInspection=PdfGuide.inspect(file,document.getElementById('guide-docx'),()=>select('local'),()=>select('ocr'),document.getElementById('docx-pages').value).then(result=>{
@@ -1356,7 +1362,7 @@ setupDropzone('dz-docx','input-docx',files=>chooseWordFile(files[0]));
 async function convertWord(trial=false){
   if(wordBusy||!docxFile)return;
   const mode=effectiveWordMode();if(!mode)return;
-  OCRWord.clearReview?.();window.WordTrial?.clear();wordBusy=true;const selected=docxFile;updateWordOptions();
+  window.WordSession?.start();OCRWord.clearReview?.();window.WordTrial?.clear();wordBusy=true;const selected=docxFile;updateWordOptions();
   wordMode.disabled=true;document.getElementById('word-preserve').disabled=true;document.getElementById('input-docx').disabled=true;
   PdfGuide.clear(document.getElementById('guide-docx'));document.getElementById('progress-ocr-word').hidden=true;
   for(const id of ['status-docx-progress','status-docx-local-progress']){const p=document.getElementById(id);if(p)p.hidden=true;}
@@ -2029,7 +2035,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v24');
+      const cache=await caches.open('person-convert-pwa-v25');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
