@@ -33,3 +33,5 @@ const low=[anchor('before'),anchor('of',{fontFamily:'Arial',matched:false,confid
 assert(beginning[1].shortContext,'Three-letter short words use corroborated nearby line style');
 
 const regular=[anchor('before',{fontSize:12,bbox:{x0:0,y0:10,x1:30,y1:22}}),anchor('middle',{fontSize:11.5,bbox:{x0:35,y0:10,x1:65,y1:22}}),anchor('afterward',{fontSize:12.5,bbox:{x0:70,y0:10,x1:110,y1:22}}),anchor('of',{fontSize:11.5,bbox:{x0:115,y0:13,x1:125,y1:21}}),anchor('2',{fontSize:7,bbox:{x0:130,y0:3,x1:135,y1:10}})];style.normalizeLineSizes(regular);assert(regular.slice(0,4).every(w=>w.fontSize===12));assert.equal(regular[4].fontSize,7,'Superscript/small different-baseline text must not be enlarged');
+
+const ambiguousFamily=style.rank([{score:.1,fontFamily:'Arial',bold:true},{score:.102,fontFamily:'Times New Roman',bold:true},{score:.3,fontFamily:'Arial',bold:false}]);assert(ambiguousFamily.margin>.1);assert(ambiguousFamily.familyMargin<.012,'Family ambiguity is measured independently of emphasis');

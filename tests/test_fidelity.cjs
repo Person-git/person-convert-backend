@@ -44,3 +44,12 @@ const adjacent=[{runs:[
 ]}];
 const protectedRuns=fidelity.protectRasterNeighbours(adjacent,1);assert.equal(protectedRuns.retained,3);assert.equal(protectedRuns.masks[0].text,'safe');assert(adjacent[0].runs[2].rasterOnly,'Preservation must propagate through adjacent masks');
 const marker=[{text:'a',confidence:95,fontSize:15.5,bbox:{x0:5,y0:10,x1:12,y1:23}},{text:'regular body',confidence:95,fontSize:12.5,bbox:{x0:18,y0:10,x1:90,y1:23}}];assert.equal(fidelity.prepareOcrOverlay(marker,1).retained,1);assert.equal(marker[0].retainedReason,'獨立小字樣式不可靠');
+
+// Appearance-only conservative style fallback must not change native/quick text.
+const visualWord=(text,x,extra={})=>({text,confidence:98,fontSize:12,fontFamily:'Arial',styleAnalyzed:true,bbox:{x0:x,y0:10,x1:x+20,y1:22},...extra});
+const unproven=[{runs:[visualWord('Model',0)]}];fidelity.prepareOcrOverlay(unproven,1);assert(unproven[0].runs[0].rasterOnly);
+const ambiguous=[{runs:[visualWord('Header',0,{matched:true,familyMargin:.003})]}];fidelity.prepareOcrOverlay(ambiguous,1);assert(ambiguous[0].runs[0].rasterOnly,'A confident emphasis match does not establish font family');
+const proven=[{runs:[visualWord('Header',0,{matched:true,familyMargin:.04})]}];fidelity.prepareOcrOverlay(proven,1);assert(!proven[0].runs[0].rasterOnly);
+const fragment=[{runs:[visualWord('uncertain',0),visualWord('is',25,{matched:true}),visualWord('a',50,{inherited:true}),visualWord('editable',100,{matched:true})]}];fidelity.prepareOcrOverlay(fragment,1);assert(fragment[0].runs[1].rasterOnly);assert(!fragment[0].runs[2].rasterOnly,'Typography fallback cannot propagate beyond original seeds');assert(!fragment[0].runs[3].rasterOnly);
+const markerBoundary=[{runs:[visualWord('◆',0),visualWord('If',25,{matched:true}),visualWord('normal',100,{matched:true})]}];fidelity.prepareOcrOverlay(markerBoundary,1);assert(!markerBoundary[0].runs[1].rasterOnly,'List symbols alone do not trigger baseline fallback');
+const nativeStyle=[{runs:[visualWord('Native',0,{styleAnalyzed:false})]}];fidelity.prepareOcrOverlay(nativeStyle,1);assert(!nativeStyle[0].runs[0].rasterOnly);

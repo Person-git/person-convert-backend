@@ -51,7 +51,8 @@
     const sorted=candidates.slice().sort((a,b)=>a.score-b.score),best=sorted[0];
     if(!best)return null;
     const alternative=sorted.find(c=>c.bold!==best.bold||c.italic!==best.italic);
-    return {...best,margin:alternative?alternative.score-best.score:0};
+    const otherFamily=sorted.find(c=>c.fontFamily!==best.fontFamily);
+    return {...best,margin:alternative?alternative.score-best.score:0,familyMargin:otherFamily?otherFamily.score-best.score:0};
   }
   function refineShortStyles(words,context=[]){
     const signature=w=>`${w.fontFamily}|${!!w.bold}|${!!w.italic}`;
@@ -147,8 +148,8 @@
           const family=cjk?'Microsoft JhengHei':'Arial';
           probe.font=`100px "${family}"`;const metrics=probe.measureText(text);
           const estimated=100/scale*Math.min((b.x1-b.x0)/Math.max(1,metrics.actualBoundingBoxLeft+metrics.actualBoundingBoxRight),(b.y1-b.y0)/Math.max(1,metrics.actualBoundingBoxAscent+metrics.actualBoundingBoxDescent));
-          const item={text,color:root.TextColor?.sample(canvas,b),bbox:{...b},fontFamily:family,fontSize:estimated,confidence:word.confidence??90,symbolLike:!!symbolLike,estimated:true};
-          if(accepted)Object.assign(item,{fontFamily:best.fontFamily,bold:best.bold,italic:best.italic,fontSize:best.fontSize,matched:true});
+          const item={text,color:root.TextColor?.sample(canvas,b),bbox:{...b},fontFamily:family,fontSize:estimated,confidence:word.confidence??90,symbolLike:!!symbolLike,estimated:true,styleAnalyzed:true};
+          if(accepted)Object.assign(item,{fontFamily:best.fontFamily,bold:best.bold,italic:best.italic,fontSize:best.fontSize,matched:true,familyMargin:best.familyMargin});
           results.push(item);
         }
         // Complete weak/short words only when at least two direct matches agree unanimously.
