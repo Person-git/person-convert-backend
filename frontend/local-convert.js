@@ -63,7 +63,8 @@
               try{const render=page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport:view,background:'#fff'});const stop=AppTasks.watch(render);try{await render.promise;}finally{stop?.();}
                 const rich=await PDFFidelity.nativePage(page,canvas,scale);
                 if(!rich)throw new Error('此頁沒有足夠的文字層，請選擇 OCR 處理方式以保留圖片');
-                imageBytes+=(rich.image?.length||0)*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');
+                if(root.WordGeometry)await root.WordGeometry.improve(rich,page,()=>document.createElement('canvas'),AppTasks.signal);
+                imageBytes+=((rich.image?.length||0)+(rich.pictures||[]).reduce((n,p)=>n+p.image.length,0))*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');
                 textCount+=rich.lines.length+(rich.tables?.length||0);tableCount+=rich.tables?.length||0;texts.push(rich);
               }finally{canvas.width=canvas.height=0;}
             }else{const content=await page.getTextContent();const rows=textRows(content.items);textCount+=rows.length;texts.push(rows.map(row=>row.join('\t')).join('\n'));}
@@ -85,7 +86,8 @@
         download(new Blob([sheets.write(workbook,{bookType:'xlsx',type:'array',compression:true})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'converted.xlsx');
       }else if(numbers.length===1)download(new Blob([singleSvg],{type:'image/svg+xml'}),`page-${numbers[0]}.svg`);
       else download(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'pages-svg.zip');
-      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${kind==='docx'?(preserve?`圖片圖層與字型名稱已保留，請校對字型與位置${tableCount?'；'+tableCount+' 個簡單表格可編輯':''}`:'文字版 Word，不保留原排版'):sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
+      const geometry=texts.reduce((a,p)=>{a.pictures+=p.pictures?.length||0;a.paragraphs+=p.geometryStats?.paragraphs||0;a.substituted+=p.geometryStats?.substituted||0;a.widthAdjusted+=p.geometryStats?.widthAdjusted||0;return a;},{pictures:0,paragraphs:0,substituted:0,widthAdjusted:0});
+      progress.value=100;setStatus(status,`完成 100% · ${numbers.length} 頁 · ${kind==='docx'?(preserve?`圖片圖層與可編輯文字；${geometry.pictures} 個獨立圖片裁切物件、${geometry.paragraphs} 個連續段落，${geometry.substituted} 處字型替代、${geometry.widthAdjusted} 處文字寬度校正，請校對${tableCount?'；'+tableCount+' 個簡單表格可編輯':''}`:'文字版 Word，不保留原排版'):sheets?'請校對 Excel 列欄與數值':'請檢查 SVG 字型與特殊效果'}`);
     }catch(error){progress.hidden=true;setStatus(status,error,true);}
     finally{if(task)await task.destroy().catch(()=>{});delete button.dataset.busy;button.disabled=false;}
   }

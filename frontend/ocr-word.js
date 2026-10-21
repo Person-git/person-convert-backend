@@ -68,7 +68,7 @@
     zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
     zip.file('word/document.xml',layout?root.OCRLayout.documentXml(pages):documentXml(pages));
     let imageRelations='',imageBytes=0;
-    if(layout)pages.forEach((page,index)=>{if(page.image){imageBytes+=page.image.length*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');zip.file(`word/media/page-${index+1}.png`,page.image,{base64:true});imageRelations+=`<Relationship Id="rImage${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page-${index+1}.png"/>`;}});
+    if(layout)pages.forEach((page,index)=>{for(const [n,picture] of (page.pictures||[]).entries()){imageBytes+=picture.image.length*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');zip.file(`word/media/picture-${index+1}-${n+1}.png`,picture.image,{base64:true});imageRelations+=`<Relationship Id="rPicture${index+1}_${n+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/picture-${index+1}-${n+1}.png"/>`;}if(page.image){imageBytes+=page.image.length*.75;if(imageBytes>30*1024*1024)throw new Error('圖片圖層超過 30 MB，請減少頁數再試');zip.file(`word/media/page-${index+1}.png`,page.image,{base64:true});imageRelations+=`<Relationship Id="rImage${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page-${index+1}.png"/>`;}});
     zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+imageRelations+'</Relationships>');
     zip.file('word/styles.xml','<?xml version="1.0" encoding="UTF-8"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Microsoft JhengHei"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>');
     return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'});
@@ -102,7 +102,7 @@
         try{await abortable(task.promise,signal);}finally{signal.removeEventListener('abort',cancelRender);}
         checkAbort(signal);
         onPage(index+1,numbers.length,'recognize',0,number);
-        if(preserve&&preferNative){const native=await root.PDFFidelity.nativePage(page,canvas,scale,signal);if(native){account(native.image);texts.push(native);onPage(index+1,numbers.length,'done',0,number);continue;}}
+        if(preserve&&preferNative){const native=await root.PDFFidelity.nativePage(page,canvas,scale,signal);if(native){if(root.WordGeometry)await root.WordGeometry.improve(native,page,createCanvas,signal);account(native.image);for(const picture of native.pictures||[])account(picture.image);texts.push(native);onPage(index+1,numbers.length,'done',0,number);continue;}}
         const result=await abortable(worker.recognize(canvas,{},layout||reflow||review?{text:true,blocks:true}:{text:true}),signal);
         let reviewedLines=[];
         if(layout){
@@ -117,10 +117,11 @@
           if(preserve)onPage(index+1,numbers.length,'graphics',0,number);
           if(preserve&&root.PDFFidelity.prepareOcrOverlay){const regions=await root.PDFFidelity.smallImageRegions(page);checkAbort(signal);const overlay=root.PDFFidelity.prepareOcrOverlay(lines,scale,regions,base.height,canvas,grids);masks=overlay.masks;retained=overlay.retained;}
           const image=preserve?await root.PDFFidelity.graphics(page,canvas,scale,masks,false,signal):null;
-          account(image);
+
           reviewedLines=lines;
           const structured=preserve&&root.PageStructure?root.PageStructure.tables(lines,grids,scale):{lines,tables:[]};
-          texts.push({text:result.data.text||'',width:base.width,height:base.height,scale,lines:structured.lines,tables:structured.tables,image,styleStats,retained});
+          const output={text:result.data.text||'',width:base.width,height:base.height,scale,lines:structured.lines,tables:structured.tables,image,styleStats,retained};
+          if(preserve&&root.WordGeometry)await root.WordGeometry.improve(output,page,createCanvas,signal);account(output.image);for(const picture of output.pictures||[])account(picture.image);texts.push(output);
         }else if(reflow){
           const flow=typeof module!=='undefined'?require('./ocr-flow.js'):root.OCRFlow;
           texts.push(flow.textFromBlocks(result.data.blocks,result.data.text||''));
@@ -223,7 +224,9 @@
         const tableCount=texts.reduce((sum,page)=>sum+(page.tables?.length||0),0);
         const retained=texts.reduce((sum,page)=>sum+(page.retained||0),0),retainedNote=retained?`；${retained} 個低信心字詞／符號／圖示／頁尾文字保留原圖，不可直接編輯`:'';
         const timingNote=Object.entries(timings).filter(([,ms])=>ms>=50).map(([key,ms])=>`${({prepare:'準備',render:'頁面',recognize:'OCR',style:'字型',graphics:'圖片',docx:'Word'})[key]} ${(ms/1000).toFixed(1)} 秒`).join('／');
-        bar.value=100;message(`完成 100% · ${total} 個指定頁面 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}${styleNote}${retainedNote}${tableCount?`；${tableCount} 個簡單表格已轉為可編輯表格`:""}；耗時：${timingNote}`);
+        const geometry=texts.reduce((a,p)=>{for(const k of ['substituted','widthAdjusted','paragraphs'])a[k]+=p.geometryStats?.[k]||0;a.pictures+=(p.pictures||[]).length;return a;},{substituted:0,widthAdjusted:0,paragraphs:0,pictures:0});
+        const geometryNote=preserve?`；${geometry.pictures} 個獨立圖片裁切物件、${geometry.paragraphs} 個連續段落，${geometry.substituted} 處字型替代、${geometry.widthAdjusted} 處文字寬度校正`:'';
+        bar.value=100;message(`完成 100% · ${total} 個指定頁面 · 共 ${((performance.now()-started)/1000).toFixed(1)} 秒；${preserve?'圖片圖層與可編輯文字，OCR 字型為估計，請校對背景與字型':layout?'保留文字位置（實驗版），文字框可編輯，請校對位置與內容':reflow?'可編輯文字版，段落／欄序整理模式，請校對辨識結果':'原始換行文字，未重排，請校對辨識結果'}${geometryNote}${styleNote}${retainedNote}${tableCount?`；${tableCount} 個簡單表格已轉為可編輯表格`:""}；耗時：${timingNote}`);
       }catch(error){
         bar.hidden=true;
         message(signal.aborted?'已取消 OCR，未產生檔案':`OCR 失敗：${root.AppCore.errorMessage(error)}`,!signal.aborted);

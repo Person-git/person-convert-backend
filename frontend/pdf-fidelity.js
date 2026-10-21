@@ -27,7 +27,7 @@
     return {text:content.items.map(i=>i.str||'').join(' '),width:view.width,height:view.height,scale:1,lines,native:true};
   }
   function check(signal){if(signal?.aborted){const e=new Error('已取消');e.name='AbortError';throw e;}}
-  async function smallImageRegions(page){
+  async function smallImageRegions(page,maxArea=.12){
     const ops=root.pdfjsLib?.OPS;if(!ops)return [];
     const view=page.getViewport({scale:1}),list=await page.getOperatorList(),regions=[],stack=[];
     const multiply=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
@@ -40,7 +40,7 @@
       else if([ops.paintImageXObject,ops.paintInlineImageXObject,ops.paintImageMaskXObject].filter(Number.isFinite).includes(op)){
         const points=[[0,0],[1,0],[0,1],[1,1]].map(([x,y])=>[matrix[0]*x+matrix[2]*y+matrix[4],matrix[1]*x+matrix[3]*y+matrix[5]]);
         const r={x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))};
-        if((r.x1-r.x0)*(r.y1-r.y0)<view.width*view.height*.12)regions.push(r);
+        if((r.x1-r.x0)*(r.y1-r.y0)<view.width*view.height*maxArea)regions.push(r);
       }
     }
     return regions;
