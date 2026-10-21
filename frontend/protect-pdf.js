@@ -29,7 +29,7 @@ function init(root){
  async function run(kind){
   if(!file||working||mode!==kind)return;const encrypt=kind==='encrypt';let options;try{if(encrypt)options=protectionOptions($);if(file.size>50*1024*1024)throw Error('請使用小於 50 MB 的 PDF');}catch(e){root.setStatus('status-security',e,true);return;}
   working=true;refresh();let worker,timer,stop;const signal=root.AppTasks.signal,selected=file;
-  try{root.AppTasks.phase(encrypt?'讀取 PDF，準備加密':'讀取 PDF，準備解除保護');const bytes=await selected.arrayBuffer();root.AppTasks.check();worker=new root.Worker('unlock-worker.js?v=26');
+  try{root.AppTasks.phase(encrypt?'讀取 PDF，準備加密':'讀取 PDF，準備解除保護');const bytes=await selected.arrayBuffer();root.AppTasks.check();worker=new root.Worker('unlock-worker.js?v=27');
    const result=await new Promise((resolve,reject)=>{stop=()=>{worker.terminate();reject(root.AppCore.abortError());};signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted){stop();return;}
     timer=setTimeout(()=>{worker.terminate();reject(Error('處理超過 120 秒，請減少檔案大小再試'));},120000);
     worker.onmessage=e=>{if(signal?.aborted)return;if(e.data.stage){root.setStatus('status-security',e.data.stage);return;}e.data.error?reject(Error(e.data.error)):resolve(e.data);};worker.onerror=()=>reject(Error('PDF 引擎載入或處理失敗，請確認網路後重試'));

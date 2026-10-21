@@ -16,3 +16,5 @@ root.DownloadResults.clearOwner('tool-11');assert(panel.hidden);assert.equal(lin
 root.DownloadResults.publish({size:10},'out.svg');events.pagehide();assert(panel.hidden);assert.equal(link.href,undefined);
 const html=fs.readFileSync('frontend/index.html','utf8'),core=fs.readFileSync('frontend/app-core.js','utf8');assert(html.includes('DownloadResults.publish(blob,filename)'));assert(html.includes("clearOwner(dz.closest('.sheet').id)"));assert(core.includes('clearOwner(owner)'));assert(core.includes('get owner()'));
 console.log('Cross-format result replacement, owner isolation, bounded eviction, URL revocation, repeat download and page lifecycle passed');
+
+assert(html.indexOf("clearOwner(dz.closest('.sheet').id)")<html.indexOf('await onFiles(checked)'), 'Clear before async preview so late preview completion cannot erase a new result');

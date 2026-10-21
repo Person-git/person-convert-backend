@@ -13,24 +13,24 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=26"></script>
-<script src="download-results.js?v=26"></script>
-<script src="lazy-pdf.js?v=26"></script>
-<script src="workspace-tools.js?v=26"></script>
-<script src="word-trial.js?v=26"></script>
-<script src="text-color.js?v=26"></script>
-<script src="page-structure.js?v=26"></script>
-<script src="ocr-layout.js?v=26"></script>
-<script src="ocr-style.js?v=26"></script>
-<script src="ocr-flow.js?v=26"></script>
-<script src="pdf-fidelity.js?v=26"></script>
-<script src="word-geometry.js?v=26"></script>
-<script src="pdf-guide.js?v=26"></script>
-<script src="word-session.js?v=26"></script>
-<script src="ocr-word.js?v=26"></script>
-<script src="local-convert.js?v=26"></script>
-<script src="protect-pdf.js?v=26"></script>
-<script src="local-compress.js?v=26"></script>
+<script src="app-core.js?v=27"></script>
+<script src="download-results.js?v=27"></script>
+<script src="lazy-pdf.js?v=27"></script>
+<script src="workspace-tools.js?v=27"></script>
+<script src="word-trial.js?v=27"></script>
+<script src="text-color.js?v=27"></script>
+<script src="page-structure.js?v=27"></script>
+<script src="ocr-layout.js?v=27"></script>
+<script src="ocr-style.js?v=27"></script>
+<script src="ocr-flow.js?v=27"></script>
+<script src="pdf-fidelity.js?v=27"></script>
+<script src="word-geometry.js?v=27"></script>
+<script src="pdf-guide.js?v=27"></script>
+<script src="word-session.js?v=27"></script>
+<script src="ocr-word.js?v=27"></script>
+<script src="local-convert.js?v=27"></script>
+<script src="protect-pdf.js?v=27"></script>
+<script src="local-compress.js?v=27"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -703,7 +703,7 @@ function setupDropzone(dzId,inputId,onFiles){
   const dz=document.getElementById(dzId),input=document.getElementById(inputId);let generation=0;
   const submit=async files=>{
     if(AppTasks.busy||!files.length)return;const current=++generation;
-    try{const checked=await AppCore.normalizeFiles(files,input.accept);if(current!==generation||AppTasks.busy)return;await onFiles(checked);window.DownloadResults?.clearOwner(dz.closest('.sheet').id);}
+    try{const checked=await AppCore.normalizeFiles(files,input.accept);if(current!==generation||AppTasks.busy)return;window.DownloadResults?.clearOwner(dz.closest('.sheet').id);await onFiles(checked);}
     catch(error){const status=dz.closest('.sheet').querySelector('.status');if(status)setStatus(status.id,AppCore.errorMessage(error),true);}
   };
   dz.addEventListener('click',event=>{if(event.target!==input&&!input.disabled&&!AppTasks.busy)input.click();});
@@ -2037,7 +2037,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v26');
+      const cache=await caches.open('person-convert-pwa-v27');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';
