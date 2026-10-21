@@ -13,22 +13,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=19"></script>
-<script src="lazy-pdf.js?v=19"></script>
-<script src="workspace-tools.js?v=19"></script>
-<script src="word-trial.js?v=19"></script>
-<script src="text-color.js?v=19"></script>
-<script src="page-structure.js?v=19"></script>
-<script src="ocr-layout.js?v=19"></script>
-<script src="ocr-style.js?v=19"></script>
-<script src="ocr-flow.js?v=19"></script>
-<script src="pdf-fidelity.js?v=19"></script>
-<script src="word-geometry.js?v=19"></script>
-<script src="pdf-guide.js?v=19"></script>
-<script src="ocr-word.js?v=19"></script>
-<script src="local-convert.js?v=19"></script>
-<script src="protect-pdf.js?v=19"></script>
-<script src="local-compress.js?v=19"></script>
+<script src="app-core.js?v=20"></script>
+<script src="lazy-pdf.js?v=20"></script>
+<script src="workspace-tools.js?v=20"></script>
+<script src="word-trial.js?v=20"></script>
+<script src="text-color.js?v=20"></script>
+<script src="page-structure.js?v=20"></script>
+<script src="ocr-layout.js?v=20"></script>
+<script src="ocr-style.js?v=20"></script>
+<script src="ocr-flow.js?v=20"></script>
+<script src="pdf-fidelity.js?v=20"></script>
+<script src="word-geometry.js?v=20"></script>
+<script src="pdf-guide.js?v=20"></script>
+<script src="ocr-word.js?v=20"></script>
+<script src="local-convert.js?v=20"></script>
+<script src="protect-pdf.js?v=20"></script>
+<script src="local-compress.js?v=20"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -2029,7 +2029,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v19');
+      const cache=await caches.open('person-convert-pwa-v20');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

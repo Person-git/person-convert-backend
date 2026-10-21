@@ -35,3 +35,12 @@ const files={};class Zip{file(name,value,options){files[name]={value,options};}a
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
 const broken=[{bbox:{x0:10,y0:10,x1:80,y1:25},runs:[{text:'one',confidence:99,fontSize:12,bbox:{x0:40,y0:10,x1:60,y1:25}},{text:'two',confidence:99,fontSize:12,bbox:{x0:20,y0:10,x1:35,y1:25}}]}];assert.equal(fidelity.prepareOcrOverlay(broken,1).retained,2);assert(broken[0].runs.every(r=>r.rasterOnly&&r.retainedReason==='字詞位置不可靠'));
+
+const adjacent=[{runs:[
+ {text:'symbol',bbox:{x0:0,y0:10,x1:10,y1:20},rasterOnly:true},
+ {text:'near',bbox:{x0:11,y0:10,x1:20,y1:20},background:{x:9,y:8,width:13,height:14}},
+ {text:'chain',bbox:{x0:21,y0:10,x1:30,y1:20},background:{x:19,y:8,width:13,height:14}},
+ {text:'safe',bbox:{x0:50,y0:10,x1:70,y1:20},background:{x:48,y:8,width:24,height:14}}
+]}];
+const protectedRuns=fidelity.protectRasterNeighbours(adjacent,1);assert.equal(protectedRuns.retained,3);assert.equal(protectedRuns.masks[0].text,'safe');assert(adjacent[0].runs[2].rasterOnly,'Preservation must propagate through adjacent masks');
+const marker=[{text:'a',confidence:95,fontSize:15.5,bbox:{x0:5,y0:10,x1:12,y1:23}},{text:'regular body',confidence:95,fontSize:12.5,bbox:{x0:18,y0:10,x1:90,y1:23}}];assert.equal(fidelity.prepareOcrOverlay(marker,1).retained,1);assert.equal(marker[0].retainedReason,'獨立小字樣式不可靠');

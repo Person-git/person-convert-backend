@@ -69,9 +69,21 @@
     }
     return found;
   }
+  function protectRasterNeighbours(lines,scale){
+    const runs=lines.flatMap(l=>l.runs||[l]),edges=runs.map(()=>[]),queue=[];
+    const overlap=(a,b)=>Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)>.01&&Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)>.01;
+    for(let i=0;i<runs.length;i++){
+      const run=runs[i],b=run.bbox;if(run.rasterOnly){queue.push(i);continue;}
+      const bg=run.background,pad=Math.max(scale,(b.y1-b.y0)*.12),mask=bg?{x0:bg.x,y0:bg.y,x1:bg.x+bg.width,y1:bg.y+bg.height}:{x0:b.x0-pad,y0:b.y0-pad,x1:b.x1+pad,y1:b.y1+pad};
+      for(let j=0;j<runs.length;j++)if(i!==j&&overlap(mask,runs[j].bbox))edges[j].push(i);
+    }
+    // If a removal mask touches a retained glyph, preserve it too. Propagate
+    // until no editable mask can erase a neighbouring retained word or symbol.
+    for(let n=0;n<queue.length;n++)for(const i of edges[queue[n]])if(!runs[i].rasterOnly){runs[i].rasterOnly=true;runs[i].retainedReason='原圖與文字交界過近';queue.push(i);}
+    return {masks:runs.filter(r=>!r.rasterOnly),retained:runs.filter(r=>r.rasterOnly).length};
+  }
   function prepareOcrOverlay(lines,scale,regions=[],pageHeight=Infinity,canvas=null,grids=[]){
     const footers=footerLines(lines,scale,pageHeight);
-    const masks=[];let retained=0;
     for(const line of lines){
       const sourceRuns=line.runs||[line],badGeometry=sourceRuns.some((r,i)=>i>0&&r.bbox.x0<=sourceRuns[i-1].bbox.x0);
       for(const run of sourceRuns){
@@ -79,13 +91,13 @@
         const b=run.bbox,area=Math.max(1,(b.x1-b.x0)*(b.y1-b.y0));
         const insideImage=regions.some(r=>Math.max(0,Math.min(b.x1,r.x1*scale)-Math.max(b.x0,r.x0*scale))*Math.max(0,Math.min(b.y1,r.y1*scale)-Math.max(b.y0,r.y0*scale))/area>.8);
         const footer=footers.has(line);
-        run.rasterOnly=badGeometry||footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
-        run.retainedReason=run.rasterOnly?(badGeometry?'字詞位置不可靠':footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
+        const isolatedMarker=sourceRuns.length===1&&/^[A-Za-z]$/.test(run.text.trim())&&lines.some(other=>other!==line&&(other.runs||[other]).some(word=>{const a=word.bbox;return word.fontSize>0&&run.fontSize>word.fontSize*1.2&&Math.min(b.y1,a.y1)>Math.max(b.y0,a.y0)&&a.x0>b.x1&&a.x0-b.x1<scale*35;}));
+        run.rasterOnly=badGeometry||isolatedMarker||footer||insideImage||run.confidence<50||symbolsOnly||run.symbolLike||run.fontSize<4||/[\uFFFD\u00a2\u00bb]/.test(run.text);
+        run.retainedReason=run.rasterOnly?(badGeometry?'字詞位置不可靠':isolatedMarker?'獨立小字樣式不可靠':footer?'頁尾':insideImage?'圖示內文字':'低信心文字或符號'):null;
         if(!run.rasterOnly&&canvas&&root.PageStructure){run.background=root.PageStructure.background(canvas,b,grids);if(!run.background){run.rasterOnly=true;run.retainedReason='背景不均，保留原圖';}}
-        if(run.rasterOnly)retained++;else masks.push(run);
       }
     }
-    return {masks,retained};
+    return protectRasterNeighbours(lines,scale);
   }
   async function graphics(page,canvas,scale,lines,native,signal){
     check(signal);
@@ -118,6 +130,6 @@
     if(root.PageStructure){const grids=root.PageStructure.detect(canvas).map(g=>({xs:g.xs.map(x=>x/scale),ys:g.ys.map(y=>y/scale)})),structured=root.PageStructure.tables(result.lines,grids,1);result.lines=structured.lines;result.tables=structured.tables;}
     return result;
   }
-  const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,smallImageRegions,footerLines};
+  const api={fontStyle,nativeText,nativePage,graphics,prepareOcrOverlay,protectRasterNeighbours,smallImageRegions,footerLines};
   if(typeof module!=='undefined')module.exports=api;else root.PDFFidelity=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

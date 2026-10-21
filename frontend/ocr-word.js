@@ -222,7 +222,7 @@
         const styleTotals=texts.reduce((sum,page)=>{if(page.styleStats)for(const key of ['matched','uncertain','inherited','bold','italic'])sum[key]+=page.styleStats[key];return sum;},{matched:0,uncertain:0,inherited:0,bold:0,italic:0});
         const styleNote=layout&&texts.some(page=>page.styleStats)?`；視覺比對 ${styleTotals.matched} 詞、同列推估 ${styleTotals.inherited} 詞（粗體 ${styleTotals.bold}、斜體 ${styleTotals.italic}），${styleTotals.uncertain} 詞採一般替代樣式，請校對`:'';
         const tableCount=texts.reduce((sum,page)=>sum+(page.tables?.length||0),0);
-        const retained=texts.reduce((sum,page)=>sum+(page.retained||0),0),retainedNote=retained?`；${retained} 個低信心字詞／符號／圖示／頁尾文字保留原圖，不可直接編輯`:'';
+        const retained=texts.reduce((sum,page)=>sum+(page.retained||0),0),retainedNote=retained?`；${retained} 個字詞／符號因信心、圖示、頁尾或交界保護而保留原圖，不可直接編輯`:'';
         const timingNote=Object.entries(timings).filter(([,ms])=>ms>=50).map(([key,ms])=>`${({prepare:'準備',render:'頁面',recognize:'OCR',style:'字型',graphics:'圖片',docx:'Word'})[key]} ${(ms/1000).toFixed(1)} 秒`).join('／');
         const geometry=texts.reduce((a,p)=>{for(const k of ['substituted','widthAdjusted','paragraphs'])a[k]+=p.geometryStats?.[k]||0;a.pictures+=(p.pictures||[]).length;return a;},{substituted:0,widthAdjusted:0,paragraphs:0,pictures:0});
         const geometryNote=preserve?`；${geometry.pictures} 個獨立圖片裁切物件、${geometry.paragraphs} 個連續段落，${geometry.substituted} 處字型替代、${geometry.widthAdjusted} 處文字寬度校正`:'';
