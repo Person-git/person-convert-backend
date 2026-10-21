@@ -15,6 +15,8 @@ assert.equal((xml.match(/<w:txbxContent>/g)||[]).length,2);
 assert(!xml.includes('<w:drawing>'));
 const grouped=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'Normal Bold',bbox:{x0:10,y0:20,x1:130,y1:35},fontSize:12,runs:[{text:'Normal',fontFamily:'Arial',fontSize:12,bbox:{x0:10,y0:20,x1:70,y1:35}},{text:'Bold',fontFamily:'Arial',fontSize:12,bold:true,italic:true,bbox:{x0:80,y0:20,x1:130,y1:35}}]}]}]);
 assert.equal((grouped.match(/<w:txbxContent>/g)||[]).length,1,'Words must share a line box');
-assert.equal((grouped.match(/<w:fitText /g)||[]).length,2);assert(grouped.includes('w:val="1400"'));assert(grouped.includes('Normal '));assert(grouped.includes('<w:b/>'));assert(grouped.includes('<w:i/>'));
+assert.equal((grouped.match(/<w:fitText /g)||[]).length,3);assert(grouped.includes('w:val="1200"'));assert(grouped.includes('w:val="200"'));assert(grouped.includes('>Normal</w:t>'));assert(grouped.includes('<w:b/>'));assert(grouped.includes('<w:i/>'));
 console.log('Guide classification, editable positioned text, estimated size, escaping and mixed page geometry passed');
 
+
+const narrow=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'of words',fontSize:12,bbox:{x0:10,y0:10,x1:60,y1:22},runs:[{text:'of',fontSize:12,bbox:{x0:10,y0:10,x1:20,y1:22}},{text:'words',fontSize:12,bbox:{x0:20.5,y0:10,x1:60,y1:22}}]}]}]);const widths=[...narrow.matchAll(/<w:fitText w:val="(\d+)"/g)].map(m=>Number(m[1]));assert(widths[1]>=40,'Very narrow OCR gaps retain readable spacing');assert.equal(widths.reduce((a,b)=>a+b),1000,'Minimum gap must not increase total line width');

@@ -53,6 +53,32 @@
     const alternative=sorted.find(c=>c.bold!==best.bold||c.italic!==best.italic);
     return {...best,margin:alternative?alternative.score-best.score:0};
   }
+  function refineShortStyles(words,context=[]){
+    const signature=w=>`${w.fontFamily}|${!!w.bold}|${!!w.italic}`;
+    const anchors=words.map((w,i)=>({w,i})).filter(({w})=>(w.matched||w.inherited)&&w.confidence>=80&&!w.symbolLike&&/^[A-Za-z][A-Za-z'-]{3,}[,.;:!?]?$/.test(w.text));
+    for(let i=0;i<words.length;i++){
+      const word=words[i];if(!/^[A-Za-z]{1,3}[,.;:!?]?$/.test(word.text)||word.symbolLike||word.confidence<50)continue;
+      const nearest=anchors.filter(a=>a.i!==i).sort((a,b)=>Math.abs(a.i-i)-Math.abs(b.i-i)).slice(0,2);
+      if(nearest.length===1){const a=nearest[0].w,near=context.filter(w=>(w.matched||w.inherited)&&w.confidence>=80&&w.text.length>=4&&signature(w)===signature(a)&&Math.max(w.fontSize,a.fontSize)<=Math.min(w.fontSize,a.fontSize)*1.15);if(near.length>=2)nearest.push({w:near[0],i:-1});}
+      if(nearest.length!==2||signature(nearest[0].w)!==signature(nearest[1].w))continue;
+      const [a,b]=nearest.map(n=>n.w);if(Math.max(a.fontSize,b.fontSize)>Math.min(a.fontSize,b.fontSize)*1.15||Math.max(a.text.length,b.text.length)<4)continue;
+      // Strong same-family emphasis may be intentional. Repair unknown styles
+      // and short-word family guesses, without flattening a real mixed run.
+      if(word.matched&&word.fontFamily===a.fontFamily)continue;
+      Object.assign(word,{fontFamily:a.fontFamily,bold:!!a.bold,italic:!!a.italic,fontSize:(a.fontSize+b.fontSize)/2,matched:false,inherited:true,shortContext:true});
+    }
+    return words;
+  }
+  function normalizeLineSizes(words){
+    const groups=new Map();for(const word of words){const key=`${word.fontFamily}|${!!word.bold}|${!!word.italic}`,group=groups.get(key)||[];group.push(word);groups.set(key,group);}
+    for(const group of groups.values()){
+      const anchors=group.filter(w=>(w.matched||w.inherited)&&w.confidence>=80&&!w.symbolLike&&w.text.replace(/[^A-Za-z]/g,'').length>=4&&w.bbox);
+      if(anchors.length<3)continue;
+      const median=values=>values.sort((a,b)=>a-b)[Math.floor(values.length/2)],size=median(anchors.map(w=>w.fontSize)),centre=median(anchors.map(w=>(w.bbox.y0+w.bbox.y1)/2)),height=median(anchors.map(w=>w.bbox.y1-w.bbox.y0));
+      for(const word of group)if(word.bbox&&word.fontSize>=size*.85&&word.fontSize<=size*1.15&&Math.abs((word.bbox.y0+word.bbox.y1)/2-centre)<=height*.35){word.fontSize=size;word.sizeNormalized=true;}
+    }
+    return words;
+  }
   async function analyze(lines,canvas,scale,createCanvas,signal,onProgress=()=>{},templates=new Map()){
     const template=createCanvas(),scratch=createCanvas(),crop=createCanvas();
     const probe=template.getContext('2d',{willReadFrequently:true});
@@ -135,6 +161,7 @@
             Object.assign(word,{fontFamily:first.fontFamily,bold:first.bold,italic:first.italic,fontSize:size,inherited:true});
           }
         }
+        refineShortStyles(results);
         for(const word of results){stats.words++;if(word.matched)stats.matched++;else if(word.inherited)stats.inherited++;else stats.uncertain++;if(word.bold)stats.bold++;if(word.italic)stats.italic++;}
         if(results.length){
           const sizes=results.map(w=>w.fontSize).filter(Number.isFinite).sort((a,b)=>a-b);
@@ -145,10 +172,12 @@
         // Yield between lines so cancellation and progress remain responsive.
         if(index%4===0)await yieldTask();
       }
+      for(const line of output){const b=line.bbox,h=b.y1-b.y0,context=output.filter(other=>other!==line&&Math.abs(other.bbox.x0-b.x0)<=h*.7&&Math.abs(other.bbox.y0-b.y0)>h*.5&&Math.abs(other.bbox.y0-b.y0)<=h*2.6).flatMap(other=>other.runs||[]);refineShortStyles(line.runs,context);normalizeLineSizes(line.runs);const sizes=line.runs.map(w=>w.fontSize).sort((a,b)=>a-b);line.fontSize=sizes[Math.floor(sizes.length/2)]||line.fontSize;line.fontFamily=line.runs[0].fontFamily;}
+      for(const key of Object.keys(stats))stats[key]=0;for(const word of output.flatMap(l=>l.runs)){stats.words++;if(word.matched)stats.matched++;else if(word.inherited)stats.inherited++;else stats.uncertain++;if(word.bold)stats.bold++;if(word.italic)stats.italic++;}
       for(const text of frequency.keys()){if(seen.size>=4096)seen.delete(seen.values().next().value);seen.add(text);}
       abort(signal);return {lines:output,stats};
     }finally{for(const c of [template,scratch,crop])c.width=c.height=0;}
   }
-  const api={analyze,inkBounds,distance,rank,yieldTask};
+  const api={analyze,inkBounds,distance,rank,yieldTask,refineShortStyles,normalizeLineSizes};
   if(typeof module!=='undefined')module.exports=api;else root.OCRStyle=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

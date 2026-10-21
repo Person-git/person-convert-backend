@@ -22,7 +22,6 @@ const fs=require('node:fs');for(const path of ['frontend/local-convert.js','fron
 for(const retained of [[0],[1],[2],[0,1],[1,2]]){
  const runs=['LEFT','ICON','RIGHT'].map((text,i)=>({text,fontFamily:'Arial',fontSize:10,rasterOnly:retained.includes(i),bbox:{x0:10+i*50,y0:20,x1:50+i*50,y1:32}}));
  const xml=layout.documentXml([{width:600,height:800,scale:1,lines:[{text:'LEFT ICON RIGHT',bbox:{x0:10,y0:20,x1:150,y1:32},fontSize:10,runs}]}]);
- assert.equal((xml.match(/<w:fitText /g)||[]).length,3,'Every retained slot must reserve source width');
- const widths=[...xml.matchAll(/<w:fitText w:val="(\d+)"/g)].map(m=>Number(m[1]));assert.deepEqual(widths,[1000,1000,800]);
+ const widths=[...xml.matchAll(/<w:fitText w:val="(\d+)"/g)].map(m=>Number(m[1]));const expected=runs.flatMap((r,i)=>i===2?[800]:r.rasterOnly?[1000]:[800,200]);assert.deepEqual(widths,expected,'Retained slots reserve full span; editable glyphs and gaps reserve separate widths');
  retained.forEach(i=>assert(!xml.includes('>'+runs[i].text+'<'),'Retained words must not also print editable text'));
 }

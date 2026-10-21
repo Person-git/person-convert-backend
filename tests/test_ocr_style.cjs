@@ -20,3 +20,16 @@ assert(xml.includes('Normal'));assert(xml.includes('Bold'));assert(xml.includes(
  await style.yieldTask(); // Task ports must close, allowing this process to exit.
  console.log('OCR style bounds, matching, ambiguity, word geometry, mixed Word styles and cancellation passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+const anchor=(text,extra={})=>({text,fontFamily:'Times New Roman',fontSize:12,bold:true,italic:true,confidence:98,matched:true,...extra});
+for(const short of ['Do','If','of','to','UV','a']){
+ const sample=[anchor('before'),anchor(short,{fontFamily:'Arial',matched:false,fontSize:9,bold:false,italic:false}),anchor('after')];style.refineShortStyles(sample);assert.equal(sample[1].fontFamily,'Times New Roman');assert(sample[1].bold&&sample[1].italic);assert.equal(sample[1].fontSize,12);assert(sample[1].shortContext);
+}
+const beginning=[anchor('Do',{fontFamily:'Arial',matched:false}),anchor('not',{fontFamily:'Arial',matched:false}),anchor('resterilize')];style.refineShortStyles(beginning,[anchor('Verify'),anchor('integrity')]);assert(beginning[0].shortContext);
+const mixed=[anchor('before'),anchor('of',{fontFamily:'Arial',matched:false}),anchor('after',{italic:false})];style.refineShortStyles(mixed);assert(!mixed[1].shortContext,'Mixed neighbour emphasis must remain mixed');
+const emphasized=[anchor('before'),anchor('of',{italic:false}),anchor('after')];style.refineShortStyles(emphasized);assert(!emphasized[1].italic,'Matched same-family intentional emphasis is preserved');
+const low=[anchor('before'),anchor('of',{fontFamily:'Arial',matched:false,confidence:20}),anchor('after')];style.refineShortStyles(low);assert(!low[1].shortContext,'Low OCR confidence is not promoted');
+
+assert(beginning[1].shortContext,'Three-letter short words use corroborated nearby line style');
+
+const regular=[anchor('before',{fontSize:12,bbox:{x0:0,y0:10,x1:30,y1:22}}),anchor('middle',{fontSize:11.5,bbox:{x0:35,y0:10,x1:65,y1:22}}),anchor('afterward',{fontSize:12.5,bbox:{x0:70,y0:10,x1:110,y1:22}}),anchor('of',{fontSize:11.5,bbox:{x0:115,y0:13,x1:125,y1:21}}),anchor('2',{fontSize:7,bbox:{x0:130,y0:3,x1:135,y1:10}})];style.normalizeLineSizes(regular);assert(regular.slice(0,4).every(w=>w.fontSize===12));assert.equal(regular[4].fontSize,7,'Superscript/small different-baseline text must not be enlarged');
