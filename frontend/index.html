@@ -13,24 +13,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app-core.js?v=27"></script>
-<script src="download-results.js?v=27"></script>
-<script src="lazy-pdf.js?v=27"></script>
-<script src="workspace-tools.js?v=27"></script>
-<script src="word-trial.js?v=27"></script>
-<script src="text-color.js?v=27"></script>
-<script src="page-structure.js?v=27"></script>
-<script src="ocr-layout.js?v=27"></script>
-<script src="ocr-style.js?v=27"></script>
-<script src="ocr-flow.js?v=27"></script>
-<script src="pdf-fidelity.js?v=27"></script>
-<script src="word-geometry.js?v=27"></script>
-<script src="pdf-guide.js?v=27"></script>
-<script src="word-session.js?v=27"></script>
-<script src="ocr-word.js?v=27"></script>
-<script src="local-convert.js?v=27"></script>
-<script src="protect-pdf.js?v=27"></script>
-<script src="local-compress.js?v=27"></script>
+<script src="app-core.js?v=28"></script>
+<script src="download-results.js?v=28"></script>
+<script src="lazy-pdf.js?v=28"></script>
+<script src="workspace-tools.js?v=28"></script>
+<script src="word-trial.js?v=28"></script>
+<script src="text-color.js?v=28"></script>
+<script src="page-structure.js?v=28"></script>
+<script src="ocr-layout.js?v=28"></script>
+<script src="ocr-style.js?v=28"></script>
+<script src="ocr-flow.js?v=28"></script>
+<script src="pdf-fidelity.js?v=28"></script>
+<script src="word-geometry.js?v=28"></script>
+<script src="pdf-guide.js?v=28"></script>
+<script src="word-session.js?v=28"></script>
+<script src="ocr-word.js?v=28"></script>
+<script src="local-convert.js?v=28"></script>
+<script src="svg-to-pdf.js?v=28"></script>
+<script src="protect-pdf.js?v=28"></script>
+<script src="local-compress.js?v=28"></script>
 <style>
   :root{--blueprint:#f6f7f9;--blueprint-deep:#fff;--line:#24272d;--line-dim:#e3e6eb;--ink-soft:#68717e;--paper:#24272d;--stamp:#344f74;--ok:#18794e;--mono:"Segoe UI","Microsoft JhengHei",sans-serif;--sans:var(--mono);}
   *{box-sizing:border-box;}
@@ -572,11 +573,13 @@
   <section class="sheet">
     <div class="sheet-head">
       <div>
-        <div class="idx">12 / PDF → SVG</div>
-        <h2>PDF 轉向量圖</h2>
+        <div class="idx">12 / PDF ↔ SVG</div>
+        <h2>PDF 與 SVG 向量轉換</h2>
         <div class="desc">在瀏覽器輸出 SVG，文件不上傳；可指定頁碼／區間，留空則全部打包 ZIP。保留原有向量與文字，內嵌圖片仍是圖片；特殊 PDF 效果可能有差異，請檢查輸出。</div>
       </div>
     </div>
+    <div class="security-tabs" role="tablist" aria-label="向量轉換方向"><button type="button" id="vector-export-tab" role="tab" aria-selected="true" aria-controls="vector-export-panel">PDF → SVG</button><button type="button" id="vector-import-tab" role="tab" aria-selected="false" aria-controls="vector-import-panel" tabindex="-1">SVG → PDF</button></div>
+    <div id="vector-export-panel" role="tabpanel" aria-labelledby="vector-export-tab">
     <div class="dropzone" id="dz-svg">
       <input type="file" id="input-svg" accept="application/pdf">
       拖曳 PDF 到這裡
@@ -589,7 +592,16 @@
       </div>
       <button class="run" id="btn-svg" disabled>轉換為 SVG</button>
     </div>
-    <div class="status" id="status-svg"></div>
+    <div class="status" id="status-svg"></div></div>
+    <div id="vector-import-panel" role="tabpanel" aria-labelledby="vector-import-tab" hidden>
+      <p class="desc">SVG → PDF：本機處理、不上傳。路徑與形狀保留向量，內嵌 PNG／JPG 仍為圖片。文字字型可能替代；中文或特殊字元請提供相符 TTF 字型，或先將文字轉外框。不支援外部連結、濾鏡、遮罩、動畫或 HTML；遇到這些內容會提示另存簡化 SVG。</p>
+      <div class="dropzone" id="dz-vector-svg"><input type="file" id="input-vector-svg" accept=".svg,image/svg+xml">拖曳 SVG 到這裡，或點擊選擇檔案（限 5 MB）</div>
+      <div class="filelist" id="list-vector-svg"></div>
+      <label for="input-svg-font">文字用 TTF 字型（選填；中文／特殊字元必須提供，限 20 MB，僅本機使用）</label><input type="file" id="input-svg-font" accept=".ttf,font/ttf">
+      <p class="desc">提供字型後，文字統一套用該字型；不保證還原多字型或粗斜體。請使用您有權使用、涵蓋來源文字的字型。首次轉換需連線下載引擎。</p>
+      <button type="button" class="run" id="btn-svg-pdf" disabled>轉換為向量 PDF</button>
+      <div class="status" id="status-vector-svg" role="status" aria-live="polite"></div>
+    </div>
   </section>
 
   <!-- PDF壓縮 -->
@@ -2037,7 +2049,7 @@ if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('sw.js');
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('person-convert-pwa-v27');
+      const cache=await caches.open('person-convert-pwa-v28');
       const baseUrls=['/','https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
       const ready=await Promise.all(baseUrls.map(url=>cache.match(url)));
       pwaStatus.textContent=ready.every(Boolean)?'網站與基本 PDF 工具已快取；進階功能需先連線使用一次。':'網站已快取，部分 PDF 套件尚未下載；請保持連線後重新開啟。';

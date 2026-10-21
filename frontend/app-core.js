@@ -97,7 +97,7 @@ else{
   }
  };
  root.AppTasks=tasks;
- const install=()=>{for(const id of ['btn-unlock','btn-protect','btn-img2pdf','btn-p2i','btn-merge','btn-split-range','btn-split-all','btn-split-image','btn-wm','btn-pn','btn-rot','btn-pm','btn-docx','btn-word-trial','btn-offline-prepare','btn-xlsx','btn-svg','btn-compress','btn-upscale','btn-annotate-save','btn-excel-preview','btn-compression-preview']){
+ const install=()=>{for(const id of ['btn-unlock','btn-protect','btn-img2pdf','btn-p2i','btn-merge','btn-split-range','btn-split-all','btn-split-image','btn-wm','btn-pn','btn-rot','btn-pm','btn-docx','btn-word-trial','btn-offline-prepare','btn-xlsx','btn-svg','btn-svg-pdf','btn-compress','btn-upscale','btn-annotate-save','btn-excel-preview','btn-compression-preview']){
    const button=document.getElementById(id),action=button?.onclick;if(action&&button.dataset.taskWrapped!=='1'){button.dataset.taskWrapped='1';button.onclick=()=>tasks.run(button,action);}
   }for(const id of ['btn-ocr-cancel']){const b=document.getElementById(id);if(b&&b.dataset.taskCancel!=='1'){b.dataset.taskCancel='1';b.addEventListener('click',()=>tasks.cancel());}}};
  document.addEventListener('DOMContentLoaded',()=>setTimeout(install,0),{once:true});window.addEventListener('load',install,{once:true});
