@@ -89,7 +89,7 @@ PDF 壓縮需要 `gs`（Ghostscript）；Dockerfile 已安裝。前端可用任�
 後端：Render 連接 GitHub main，使用 Dockerfile。推送 main 會觸發既有自動部署。
 前端：Cloudflare Pages `convert-bench` 目前未連接 Git；部署內容應為 `frontend/`，不能上傳整個後端 repo。
 上傳前端時需包含 frontend/ 的全部 HTML 與 JS 檔案，均放在網站根目錄。
-前端原始碼與後端一同版本管理；Cloudflare 仍使用既有的直接上傳部署方式。原始線上快照保留在本機 `reference/`。
+前端原始碼與後端一同版本管理；Cloudflare 仍使用既有的直接上傳部署方式。歷史程式版本由 Git 保留，不另外留存舊站快照或部署 ZIP。
 進度顯示涵蓋 Word、Excel、SVG、壓縮：上傳與可計算長度的下載顯示實際百分比，轉換中顯示不定進度條與等待秒數，完成後顯示 100%。現有同步 API 不提供轉換階段的百分比。
 本機前端可直接連接 https://person-convert-api.onrender.com ，不需要另外執行本機後端；亦可在底部欄位改用本機 API。
 健康檢查會回傳 API 版本，頁面「測試連線」可確認目前连接的後端版本。
@@ -269,3 +269,8 @@ SVG限5MB、10000物件、尺寸1～14400px，引用深度／工作量受限。�
 沿用共用進度／取消檢查與「再次下載／清除結果」。複雜轉換可能要等目前步驟結束才回應取消；取消後不產生新下載。兩個方向共用功能12的最近一次正式結果；切換分頁不清除選檔，重新選檔／輸出遵循既有清除規則。公開測試樣本為tests/fixtures/vector-import.svg，含曲線、漸層、圓形與英文文字；tests/test_svg_to_pdf.cjs檢查尺寸與不支援內容／外部引用／循環防護。瀏覽器實測PDF仍含向量繪圖及文字，非全頁圖片；另驗證內嵌圖片與向量共存、有效TTF及缺字提示。
 
 引擎文件：https://github.com/yWorks/svg2pdf.js 。本功能只接受SVG，不直接讀取AI／EPS／CDR；請先從來源軟體匯出SVG。
+
+
+## 專案清理與保留（2026-11-19）
+
+保留目前前後端原始碼、部署設定、scripts、tests／fixtures、MD 文件與 .git 歷史；.venv 是本機 Python 相依環境，並非舊版本備份。tmp／output 為可重新產生的暫存與測試輸出，使用後可清除；Python與pytest快取亦可清除。舊部署ZIP、舊站HTML快照及舊版比較副本已移至Windows資源回收筒，歷史程式需由Git查閱。公開六頁驗證PDF固定放在 tests/fixtures/synthetic-six-pages.pdf，驗證腳本不依賴tmp內的輸入檔。機密原始文件不移入公開版本庫；外部原檔不在本次清理範圍。

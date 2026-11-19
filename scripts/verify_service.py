@@ -16,7 +16,7 @@ parser.add_argument("--output", required=True)
 args = parser.parse_args()
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
-fixture = Path("tmp/synthetic-benchmark/synthetic-six-pages.pdf").read_bytes()
+fixture = (Path(__file__).resolve().parents[1] / "tests/fixtures/synthetic-six-pages.pdf").read_bytes()
 rows = []
 with httpx.Client(base_url=args.base_url, timeout=150) as client:
     ready_until = time.monotonic() + 60

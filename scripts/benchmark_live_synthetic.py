@@ -7,7 +7,7 @@ import io
 
 import httpx
 
-source = Path("tmp/synthetic-benchmark/synthetic-six-pages.pdf")
+source = (Path(__file__).resolve().parents[1] / "tests/fixtures/synthetic-six-pages.pdf")
 data = source.read_bytes()
 base = "https://person-convert-api.onrender.com"
 rows = []
@@ -31,4 +31,6 @@ with httpx.Client(timeout=120) as client:
         except httpx.TimeoutException:
             rows.append({"kind": kind, "status": "timeout_120s"})
         print(json.dumps(rows[-1]), flush=True)
-Path("tmp/synthetic-benchmark/live-original-timings.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
+output = Path("tmp/synthetic-benchmark")
+output.mkdir(parents=True, exist_ok=True)
+(output / "live-original-timings.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
