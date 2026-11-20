@@ -2,6 +2,10 @@
 
 Cloudflare Pages 靜態前端 + Render FastAPI 後端，所有轉換使用一般 PDF 工具，不呼叫 AI 模型、不消耗 AI token。
 
+## 文件交付與驗收
+
+依公司共用規範整理的五份標準文件與維運／風險／元件／發布證據補充文件，請由 [合規交付文件索引](docs/compliance/README.md) 進入。2026-11-20版1.0為草案；本次未執行產品測試、弱點掃描或公司驗收，不代表已核准上線。
+
 ## 專案位置
 
 本專案程式碼位於 `C:\Person\IT\AI\Projects\PDF-Convert`，Git 遠端是 `Person-git/person-convert-backend`。`InternalControl` 為另一個獨立的內控專案，請勿混用程式、帳密與部署資源。
